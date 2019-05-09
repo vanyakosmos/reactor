@@ -25,6 +25,10 @@ class KeyboardManager(models.Manager):
 class Keyboard(models.Model):
     objects = KeyboardManager()
 
+    @property
+    def buttons(self):
+        return [b.text for b in self.button_set.all()]
+
     def copy(self):
         k = Keyboard.objects.create()
         bs = list(self.button_set.all())
@@ -35,7 +39,7 @@ class Keyboard(models.Model):
         return k
 
     def __str__(self):
-        bs = ', '.join([b.text for b in self.button_set.all()])
+        bs = ', '.join(self.buttons)
         return f"Keyboard({self.id}, {bs})"
 
 
