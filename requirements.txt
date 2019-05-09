@@ -1,0 +1,10 @@
+atomicwrites==1.3.0
+attrs==19.1.0
+Django==2.2.1
+more-itertools==7.0.0
+pluggy==0.11.0
+py==1.8.0
+pytest==4.4.2
+pytz==2019.1
+six==1.12.0
+sqlparse==0.3.0
