@@ -8,13 +8,17 @@ __all__ = ['Chat', 'Message', 'Button', 'Reaction', 'Keyboard']
 
 class KeyboardManager(models.Manager):
     def create_with_buttons(self, buttons):
-        k = Keyboard.objects.create()
+        k = self.create()
         Button.objects.bulk_create([
             Button(keyboard=k, index=i, text=b) for i, b in enumerate(buttons)
         ])
         return k
 
-    def create_default(self):
+    def get_default(self):
+        """Get first created keyboard, if absent - create one in place."""
+        k = self.order_by('id').first()
+        if k:
+            return k
         return self.create_with_buttons(['👍', '👎'])
 
 
@@ -29,18 +33,36 @@ class Button(models.Model):
 
 
 class Chat(models.Model):
-    chat_id = CharField(unique=True, primary_key=True)
-    keyboard = models.OneToOneField(Keyboard, on_delete=models.CASCADE)
+    id = CharField(unique=True, primary_key=True, help_text="Telegram chat ID.")
+    keyboard = models.ForeignKey(Keyboard, on_delete=models.CASCADE)
 
     def set_keyboard(self, buttons):
         self.keyboard = Keyboard.objects.create_with_buttons(buttons)
         self.save()
 
+    def save(self, *args, **kwargs):
+        if not self.keyboard_id:
+            self.keyboard = Keyboard.objects.get_default()
+        return super().save(*args, **kwargs)
+
+
+class MessageManager(models.Manager):
+    def create(self, chat_id, message_id, **kwargs):
+        """Create message based on chat ID and original telegram message ID."""
+        umid = Message.get_id(chat_id, message_id)
+        return super().create(id=umid, chat_id=chat_id, **kwargs)
+
 
 class Message(models.Model):
-    message_id = CharField(unique=True, primary_key=True)
+    id = CharField(
+        unique=True,
+        primary_key=True,
+        help_text="Telegram message ID merged with chat ID.",
+    )
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE)
     keyboard = models.ForeignKey(Keyboard, on_delete=models.CASCADE)
+
+    objects = MessageManager()
 
     @classmethod
     def get_id(cls, chat_id, message_id):
@@ -61,19 +83,23 @@ class Message(models.Model):
         rs = self.reaction_set.all()
         return rs.values('button').annotate(count=Count('id'))
 
-    class Meta:
-        unique_together = ('chat', 'message_id')
-
     def save(self, *args, **kwargs):
-        self.message_id = Message.get_id(self.chat_id, self.message_id)
+        # get default chat keyboard if not specified
+        if not self.keyboard_id:
+            self.keyboard_id = self.chat.keyboard_id
         return super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"<Message {self.chat_id} {self.message_id}>"
+        return f"<Message {self.chat_id} {self.id}>"
 
 
 class ReactionManager(models.Manager):
     def react(self, user_id, chat_id, message_id, button_id):
+        """
+        Add user reaction to the message.
+        If reaction is the same - remove old reaction.
+        If user already reacted to this message with another button - change button.
+        """
         univ_message_id = Message.get_id(chat_id, message_id)
         try:
             r = Reaction.objects.get(
@@ -99,7 +125,7 @@ class ReactionManager(models.Manager):
 
 
 class Reaction(models.Model):
-    user_id = CharField()
+    user_id = CharField(help_text="Telegram user ID.")
     message = models.ForeignKey(Message, on_delete=models.CASCADE)
     button = models.ForeignKey(Button, on_delete=models.CASCADE)
 
