@@ -25,11 +25,28 @@ class KeyboardManager(models.Manager):
 class Keyboard(models.Model):
     objects = KeyboardManager()
 
+    def copy(self):
+        k = Keyboard.objects.create()
+        bs = list(self.button_set.all())
+        for b in bs:
+            b.id = None
+            b.keyboard = k
+        Button.objects.bulk_create(bs)
+        return k
+
+    def __str__(self):
+        bs = ', '.join([b.text for b in self.button_set.all()])
+        return f"Keyboard({self.id}, {bs})"
+
 
 class Button(models.Model):
     keyboard = models.ForeignKey(Keyboard, on_delete=models.CASCADE)
     index = models.IntegerField()
     text = CharField(max_length=100)
+
+    class Meta:
+        unique_together = ('keyboard', 'text')
+        ordering = ('index',)
 
 
 class Chat(models.Model):
@@ -44,6 +61,9 @@ class Chat(models.Model):
         if not self.keyboard_id:
             self.keyboard = Keyboard.objects.get_default()
         return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Chat({self.id}, {self.keyboard})"
 
 
 class MessageManager(models.Manager):
@@ -60,7 +80,7 @@ class Message(models.Model):
         help_text="Telegram message ID merged with chat ID.",
     )
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE)
-    keyboard = models.ForeignKey(Keyboard, on_delete=models.CASCADE)
+    keyboard = models.OneToOneField(Keyboard, on_delete=models.CASCADE)
 
     objects = MessageManager()
 
@@ -86,7 +106,7 @@ class Message(models.Model):
     def save(self, *args, **kwargs):
         # get default chat keyboard if not specified
         if not self.keyboard_id:
-            self.keyboard_id = self.chat.keyboard_id
+            self.keyboard = self.chat.keyboard.copy()
         return super().save(*args, **kwargs)
 
     def __str__(self):
@@ -99,6 +119,8 @@ class ReactionManager(models.Manager):
         Add user reaction to the message.
         If reaction is the same - remove old reaction.
         If user already reacted to this message with another button - change button.
+
+        Message-Button consistency should be guarantied by Telegram API.
         """
         univ_message_id = Message.get_id(chat_id, message_id)
         try:

@@ -3,3 +3,7 @@ schema:
 
 test:
 	pytest -vv
+
+hardmig:
+	./manage.py makemigrations
+	./manage.py migrate

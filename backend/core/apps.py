@@ -8,7 +8,6 @@ class CoreConfig(AppConfig):
     verbose_name = 'Core App'
 
     def ready(self):
-        print('ready')
         try:
             from core.models import Keyboard
             Keyboard.objects.get_default()

@@ -7,12 +7,12 @@ from core.models import *
 
 @pytest.fixture
 def data():
-    k = Keyboard.objects.get_default()
+    c = Chat.objects.create(id='c1')
+    m = Message.objects.create(chat_id=c.id, message_id='m1')
+    k = m.keyboard
     bs = k.button_set.all()
     b1 = bs[0]
     b2 = bs[1]
-    c = Chat.objects.create(id='c1')
-    m = Message.objects.create(chat_id=c.id, message_id='m1')
     data = locals()
     return namedtuple('Data', sorted(data))(**data)
 
