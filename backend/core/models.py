@@ -71,6 +71,14 @@ class Chat(models.Model):
 
 
 class MessageManager(models.Manager):
+    def get_by_ids(self, chat_id, message_id):
+        umid = Message.get_id(chat_id, message_id)
+        print(umid)
+        try:
+            return Message.objects.get(id=umid)
+        except Exception as e:
+            print(e)
+
     def create(self, chat_id, message_id, **kwargs):
         """Create message based on chat ID and original telegram message ID."""
         umid = Message.get_id(chat_id, message_id)
@@ -104,8 +112,29 @@ class Message(models.Model):
         return isinstance(m_id, str) and '~' in m_id
 
     def reactions(self):
+        bs = Button.objects.filter(keyboard_id=self.keyboard_id)
+        mapper = {b.id: b for b in bs}
         rs = self.reaction_set.all()
-        return rs.values('button').annotate(count=Count('id'))
+        agg = {b.id: {
+            'button': b.id,
+            'count': 0,
+        }
+               for b in bs}
+        for bc in rs.values('button').annotate(count=Count('id')):
+            agg[bc['button']] = bc
+        agg = list(agg.values())
+        print(agg, mapper)
+        res = []
+        for bc in agg:
+            b = mapper[bc['button']]
+            res.append({
+                'id': b.id,
+                'index': b.index,
+                'text': b.text,
+                'count': bc['count'],
+            })
+        res.sort(key=lambda e: e['index'])
+        return res
 
     def save(self, *args, **kwargs):
         # get default chat keyboard if not specified

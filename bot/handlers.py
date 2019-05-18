@@ -1,7 +1,8 @@
 import logging
 
+from core.models import Message as MessageModel, Reaction, Chat
 from django.utils.datastructures import OrderedSet
-from telegram import ParseMode, Update, Message, Bot
+from telegram import ParseMode, Update, Message, Bot, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
 
 from utils import get_chat, command, bot_is_admin
@@ -50,7 +51,20 @@ def command_set_buttons(update: Update, context: CallbackContext):
 
 
 def handle_button_callback(update: Update, context: CallbackContext):
-    pass
+    query = update.callback_query
+    msg = query.message
+    # msg_model = MessageModel.objects.get_by_ids(msg.chat_id, msg.message_id)
+
+    button_id, count = map(int, query.data.split(':'))
+    r = Reaction.objects.react(
+        user_id=query['from'].id,
+        chat_id=msg.chat_id,
+        message_id=msg.message_id,
+        button_id=button_id,
+    )
+    # todo: resend message
+    print(r)
+    context.bot.answer_callback_query(query.id, 'ok')
 
 
 def process_message(update: Update, context: CallbackContext, msg_type: str):
@@ -60,30 +74,64 @@ def process_message(update: Update, context: CallbackContext, msg_type: str):
     if bot_is_admin(bot, update):
         msg.delete()
 
+    Chat.objects.get_or_create(id=msg.chat_id)
+    msg_model = MessageModel.objects.create(msg.chat_id, msg.message_id)
+
     if msg_type == 'photo':
-        send_media(msg, bot.send_photo, {'photo': msg.photo[0].file_id})
+        send_media(msg_model, msg, bot.send_photo, {'photo': msg.photo[0].file_id})
     elif msg_type == 'video':
-        send_media(msg, bot.send_video, {'video': msg.video.file_id})
+        send_media(msg_model, msg, bot.send_video, {'video': msg.video.file_id})
     else:
-        send_text(bot, msg)
+        send_text(msg_model, msg, bot)
 
 
-def send_media(message: Message, sender, file: dict):
+def get_reply_markup(original_message: Message, rates: list):
+    keys = []
+    # sorted_bs = sorted(rates.keys(), key=lambda x: rates[x]['pos'])
+    for rate in rates:
+        button_id = rate['id']
+        text = rate['text']
+        count = rate['count']
+        if count:
+            text = f'{text} {count}'
+        payload = f'{button_id}:{count}'
+        keys.append(InlineKeyboardButton(text, callback_data=payload))
+
+    print(rates, keys)
+    keyboard = []
+    # if original_message:
+    #     keyboard.append(sign_buttons(original_message))
+
+    max_cols = 3
+    while keys:
+        keyboard += [keys[:max_cols]]
+        keys = keys[max_cols:]
+
+    return InlineKeyboardMarkup(keyboard)
+
+
+def send_media(msg_model: MessageModel, message: Message, sender, file: dict):
+    # todo: account forward
+    reply_markup = get_reply_markup(message, msg_model.reactions())
+    print(reply_markup)
     sender(
         chat_id=message.chat_id,
         caption=message.caption_html,
         disable_notification=True,
         parse_mode='HTML',
+        reply_markup=reply_markup,
         **file,
     )
 
 
-def send_text(bot: Bot, message: Message):
+def send_text(msg_model: MessageModel, message: Message, bot: Bot):
+    reply_markup = get_reply_markup(message, msg_model.reactions())
     bot.send_message(
         chat_id=message.chat_id,
         text=message.text_html,
         disable_notification=True,
-        parse_mode='HTML'
+        parse_mode='HTML',
+        reply_markup=reply_markup,
     )
 
 
@@ -112,4 +160,7 @@ def handle_message(update: Update, context: CallbackContext):
         msg_type = 'unknown'
     context.bot.send_message(msg.chat_id, f"msg_type: {msg_type}, forward: {forward}")
     if msg_type in allowed_types or forward and allow_forward:
-        process_message(update, context, msg_type)
+        try:
+            process_message(update, context, msg_type)
+        except Exception as e:
+            print(e)
