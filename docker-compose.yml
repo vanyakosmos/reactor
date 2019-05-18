@@ -1,0 +1,15 @@
+version: "3"
+
+services:
+  db:
+    image: postgres:11.1
+    hostname: db
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    env_file: .envs/.local/.postgres
+    ports:
+      - 5432:5432
+
+
+volumes:
+  dbdata:
