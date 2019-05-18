@@ -1,4 +1,4 @@
-[yapf]
+[style]
 based_on_style = facebook
 column_limit = 100
 space_between_ending_comma_and_closing_bracket = false
