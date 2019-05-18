@@ -1,88 +1,43 @@
+from django.contrib.postgres.fields import ArrayField
 from django.db import models
-from django.db.models import Count
 
 from .fields import CharField
 
-__all__ = ['Chat', 'Message', 'Button', 'Reaction', 'Keyboard']
-
-
-class KeyboardManager(models.Manager):
-    def create_with_buttons(self, buttons):
-        k = self.create()
-        Button.objects.bulk_create([
-            Button(keyboard=k, index=i, text=b) for i, b in enumerate(buttons)
-        ])
-        return k
-
-    def get_default(self):
-        """Get first created keyboard, if absent - create one in place."""
-        k = self.order_by('id').first()
-        if k:
-            return k
-        return self.create_with_buttons(['👍', '👎'])
-
-
-class Keyboard(models.Model):
-    objects = KeyboardManager()
-
-    @property
-    def buttons(self):
-        return [b.text for b in self.button_set.all()]
-
-    def copy(self):
-        k = Keyboard.objects.create()
-        bs = list(self.button_set.all())
-        for b in bs:
-            b.id = None
-            b.keyboard = k
-        Button.objects.bulk_create(bs)
-        return k
-
-    def __str__(self):
-        bs = ', '.join(self.buttons)
-        return f"Keyboard({self.id}, {bs})"
-
-
-class Button(models.Model):
-    keyboard = models.ForeignKey(Keyboard, on_delete=models.CASCADE)
-    index = models.IntegerField()
-    text = CharField(max_length=100)
-
-    class Meta:
-        unique_together = ('keyboard', 'text')
-        ordering = ('index',)
+__all__ = ['Chat', 'Message', 'Button', 'Reaction']
 
 
 class Chat(models.Model):
     id = CharField(unique=True, primary_key=True, help_text="Telegram chat ID.")
-    keyboard = models.ForeignKey(Keyboard, on_delete=models.CASCADE)
+    buttons = ArrayField(models.CharField(max_length=100), default=list)
 
-    def set_keyboard(self, buttons):
-        self.keyboard = Keyboard.objects.create_with_buttons(buttons)
-        self.save()
-
-    def save(self, *args, **kwargs):
-        if not self.keyboard_id:
-            self.keyboard = Keyboard.objects.get_default()
-        return super().save(*args, **kwargs)
+    def reactions(self):
+        return [{
+            'index': index,
+            'text': text,
+            'count': 0,
+        } for index, text in enumerate(self.buttons)]
 
     def __str__(self):
-        return f"Chat({self.id}, {self.keyboard})"
+        return f"Chat({self.id}, {self.buttons})"
 
 
 class MessageManager(models.Manager):
     def get_by_ids(self, chat_id, message_id):
         umid = Message.get_id(chat_id, message_id)
-        print(umid)
-        try:
-            return Message.objects.get(id=umid)
-        except Exception as e:
-            print(e)
+        return Message.objects.get(id=umid)
 
     def create(self, chat_id, message_id, **kwargs):
-        """Create message based on chat ID and original telegram message ID."""
+        """
+        Create message based on chat ID and original telegram message ID.
+        Populate buttons.
+        """
         umid = Message.get_id(chat_id, message_id)
-        return super().create(id=umid, chat_id=chat_id, **kwargs)
+        msg = super().create(id=umid, chat_id=chat_id, **kwargs)
+        Button.objects.bulk_create([
+            Button(message=msg, index=index, text=text)
+            for index, text in enumerate(msg.chat.buttons)
+        ])
+        return msg
 
 
 class Message(models.Model):
@@ -92,7 +47,6 @@ class Message(models.Model):
         help_text="Telegram message ID merged with chat ID.",
     )
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE)
-    keyboard = models.OneToOneField(Keyboard, on_delete=models.CASCADE)
 
     objects = MessageManager()
 
@@ -112,42 +66,37 @@ class Message(models.Model):
         return isinstance(m_id, str) and '~' in m_id
 
     def reactions(self):
-        bs = Button.objects.filter(keyboard_id=self.keyboard_id)
-        mapper = {b.id: b for b in bs}
-        rs = self.reaction_set.all()
-        agg = {b.id: {
-            'button': b.id,
-            'count': 0,
-        }
-               for b in bs}
-        for bc in rs.values('button').annotate(count=Count('id')):
-            agg[bc['button']] = bc
-        agg = list(agg.values())
-        print(agg, mapper)
-        res = []
-        for bc in agg:
-            b = mapper[bc['button']]
-            res.append({
-                'id': b.id,
-                'index': b.index,
-                'text': b.text,
-                'count': bc['count'],
-            })
-        res.sort(key=lambda e: e['index'])
-        return res
-
-    def save(self, *args, **kwargs):
-        # get default chat keyboard if not specified
-        if not self.keyboard_id:
-            self.keyboard = self.chat.keyboard.copy()
-        return super().save(*args, **kwargs)
+        return [{
+            'id': b.id,
+            'index': b.index,
+            'text': b.text,
+            'count': b.count,
+        } for b in self.button_set.all()]
 
     def __str__(self):
-        return f"<Message {self.chat_id} {self.id}>"
+        return f"<Message {self.id}>"
+
+
+class Button(models.Model):
+    message = models.ForeignKey(Message, on_delete=models.CASCADE)
+    index = models.IntegerField()
+    text = CharField(max_length=100)
+    count = models.IntegerField(default=0)
+
+    def inc(self, value=1):
+        self.count += value
+        self.save()
+
+    def __str__(self):
+        return f"<B {self.text} {self.count}>"
+
+    class Meta:
+        unique_together = ('message', 'text')
+        ordering = ('index',)
 
 
 class ReactionManager(models.Manager):
-    def react(self, user_id, chat_id, message_id, button_id):
+    def react(self, user_id, chat_id, message_id, button_text):
         """
         Add user reaction to the message.
         If reaction is the same - remove old reaction.
@@ -156,6 +105,7 @@ class ReactionManager(models.Manager):
         Message-Button consistency should be guarantied by Telegram API.
         """
         univ_message_id = Message.get_id(chat_id, message_id)
+        button = Button.objects.get(message__id=univ_message_id, text=button_text)
         try:
             r = Reaction.objects.get(
                 user_id=user_id,
@@ -163,20 +113,26 @@ class ReactionManager(models.Manager):
             )
             # user already reacted...
             # clicked same button -> remove reaction
-            if r.button_id == button_id:
+            if r.button_id == button.id:
                 r.delete()
-                return None
-            # clicked another button -> change reaction
-            r.button_id = button_id
-            r.save()
-            return r
+                r = None
+                button.inc(-1)
+            else:
+                # clicked another button -> change reaction
+                old_btn = r.button
+                old_btn.inc(-1)
+                button.inc()
+                r.button = button
+                r.save()
         except Reaction.DoesNotExist:
             # user reacting first time
-            return Reaction.objects.create(
+            r = Reaction.objects.create(
                 user_id=user_id,
                 message_id=univ_message_id,
-                button_id=button_id,
+                button=button,
             )
+            button.inc()
+        return r, button
 
 
 class Reaction(models.Model):
