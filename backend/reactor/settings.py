@@ -1,5 +1,6 @@
 import os
-from dotenv import load_dotenv, find_dotenv
+
+from dotenv import find_dotenv, load_dotenv
 
 load_dotenv('../.envs/.local/.app')
 load_dotenv('../.envs/.local/.postgres')
@@ -116,3 +117,36 @@ STATIC_URL = '/static/'
 # bot
 TG_BOT_TOKEN = os.getenv('TG_BOT_TOKEN')
 TG_BOT_POLLING = os.getenv('TG_BOT_POLLING', '1') == '1'
+
+# logging
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'level': 'DEBUG',
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose'
+        },
+    },
+    'loggers': {
+        'core': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+        'bot': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+        '': {
+            'handlers': ['console'],
+            'level': 'INFO',
+        },
+    }
+}

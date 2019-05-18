@@ -77,15 +77,39 @@ class Message(models.Model):
         return f"<Message {self.id}>"
 
 
+class ButtonManager(models.Manager):
+    def filter_by_message(self, chat_id, message_id):
+        umid = Message.get_id(chat_id, message_id)
+        print(umid)
+        return self.filter(message_id=umid)
+
+    def reactions(self, chat_id, message_id):
+        return [{
+            'id': b.id,
+            'index': b.index,
+            'text': b.text,
+            'count': b.count,
+        } for b in self.filter_by_message(chat_id, message_id)]
+
+
 class Button(models.Model):
     message = models.ForeignKey(Message, on_delete=models.CASCADE)
     index = models.IntegerField()
     text = CharField(max_length=100)
     count = models.IntegerField(default=0)
 
-    def inc(self, value=1):
-        self.count += value
+    objects = ButtonManager()
+
+    def inc(self):
+        self.count += 1
         self.save()
+
+    def dec(self, chat: Chat):
+        if self.count == 1 and self.text not in chat.buttons:
+            self.delete()
+        else:
+            self.count -= 1
+            self.save()
 
     def __str__(self):
         return f"<B {self.text} {self.count}>"
@@ -106,6 +130,7 @@ class ReactionManager(models.Manager):
         """
         univ_message_id = Message.get_id(chat_id, message_id)
         button = Button.objects.get(message__id=univ_message_id, text=button_text)
+        chat, _ = Chat.objects.get_or_create(id=chat_id)
         try:
             r = Reaction.objects.get(
                 user_id=user_id,
@@ -116,11 +141,11 @@ class ReactionManager(models.Manager):
             if r.button_id == button.id:
                 r.delete()
                 r = None
-                button.inc(-1)
+                button.dec(chat)
             else:
                 # clicked another button -> change reaction
                 old_btn = r.button
-                old_btn.inc(-1)
+                old_btn.dec(chat)
                 button.inc()
                 r.button = button
                 r.save()

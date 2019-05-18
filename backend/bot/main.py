@@ -11,6 +11,7 @@ from .handlers import (
     handle_error,
     handle_message,
     handle_new_member,
+    handle_reply,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,6 +26,7 @@ def run():
         command_help,
         command_get_buttons,
         command_set_buttons,
+        handle_reply,
         handle_new_member,
         handle_message,
     ]

@@ -42,3 +42,8 @@ def get_admin_ids(bot, chat_id):
 
 def bot_is_admin(bot, update):
     return bot.id in get_admin_ids(bot, update.message.chat_id)
+
+
+def try_delete(bot, update, msg):
+    if bot_is_admin(bot, update):
+        msg.delete()

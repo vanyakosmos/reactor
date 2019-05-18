@@ -1,11 +1,12 @@
 import logging
+import re
 
 from django.utils.datastructures import OrderedSet
 from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, Message, ParseMode, Update
 from telegram.ext import CallbackContext, Filters
 
-from .utils import bot_is_admin, command, get_chat, message_handler
-from core.models import Chat, Message as MessageModel, Reaction
+from .utils import command, get_chat, message_handler, try_delete
+from core.models import Chat, Message as MessageModel, Reaction, Button
 
 logger = logging.getLogger(__name__)
 
@@ -74,9 +75,8 @@ def handle_button_callback(update: Update, context: CallbackContext):
             button_text=query.data,
         )
         reply_to_reaction(context.bot, query, button, reaction)
-
-        msg_model = MessageModel.objects.get_by_ids(msg.chat_id, msg.message_id)
-        reply_markup = get_reply_markup(msg_model.reactions())
+        reactions = Button.objects.reactions(msg.chat_id, msg.message_id)
+        reply_markup = get_reply_markup(reactions)
         msg.edit_reply_markup(reply_markup=reply_markup)
     except Exception as e:
         logger.exception(e)
@@ -86,8 +86,7 @@ def process_message(update: Update, context: CallbackContext, msg_type: str):
     msg = update.effective_message
     bot = context.bot
 
-    if bot_is_admin(bot, update):
-        msg.delete()
+    try_delete(bot, update, msg)
 
     chat, _ = Chat.objects.get_or_create(id=msg.chat_id)
 
@@ -153,12 +152,40 @@ def send_text(msg_model: MessageModel, message: Message, bot: Bot):
     )
 
 
+@message_handler(Filters.reply & Filters.text)
+def handle_reply(update: Update, context: CallbackContext):
+    user = update.effective_user
+    msg = update.effective_message
+    match = re.match(r'\+(\w+)', msg.text)
+    if not match:
+        return
+    reaction = match[1]
+    try_delete(context.bot, update, msg)
+
+    reply = msg.reply_to_message
+    umid = MessageModel.get_id(reply.chat_id, reply.message_id)
+    try:
+        Button.objects.get(message_id=umid, text=reaction)
+    except Button.DoesNotExist:
+        b = Button.objects.filter_by_message(reply.chat_id, reply.message_id).last()
+        Button.objects.create(message_id=umid, text=reaction, index=b.index + 1)
+
+    Reaction.objects.react(
+        user_id=user.id,
+        chat_id=reply.chat_id,
+        message_id=reply.message_id,
+        button_text=reaction,
+    )
+    reactions = Button.objects.reactions(reply.chat_id, reply.message_id)
+    reply_markup = get_reply_markup(reactions)
+    reply.edit_reply_markup(reply_markup=reply_markup)
+
+
 @message_handler(
     Filters.group & (Filters.photo | Filters.video | Filters.text | Filters.forwarded) &
     ~Filters.status_update.left_chat_member
 )
 def handle_message(update: Update, context: CallbackContext):
-    print(update)
     msg = update.effective_message
 
     allowed_types = {'photo', 'video', 'link'}
