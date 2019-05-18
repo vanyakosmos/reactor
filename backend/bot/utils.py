@@ -3,7 +3,7 @@ import functools
 from telegram.ext import CommandHandler
 
 from core.models import Chat
-from mwt import MWT
+from .mwt import MWT
 
 
 def get_chat(update) -> Chat:

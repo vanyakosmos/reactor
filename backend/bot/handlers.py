@@ -1,11 +1,11 @@
 import logging
 
-from core.models import Message as MessageModel, Reaction, Chat
 from django.utils.datastructures import OrderedSet
-from telegram import ParseMode, Update, Message, Bot, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Bot, InlineKeyboardButton, InlineKeyboardMarkup, Message, ParseMode, Update
 from telegram.ext import CallbackContext
 
-from utils import get_chat, command, bot_is_admin
+from bot.utils import bot_is_admin, command, get_chat
+from core.models import Chat, Message as MessageModel, Reaction
 
 logger = logging.getLogger(__name__)
 
