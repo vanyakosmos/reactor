@@ -37,5 +37,5 @@ def handle_reply(update: Update, context: CallbackContext):
         button_text=reaction,
     )
     reactions = Button.objects.reactions(reply.chat_id, reply.message_id)
-    reply_markup = get_reply_markup(reactions)
+    reply_markup = get_reply_markup(context.bot, reactions)
     reply.edit_reply_markup(reply_markup=reply_markup)

@@ -14,10 +14,8 @@ def process_message(update: Update, context: CallbackContext, msg_type: str):
     msg = update.effective_message
     bot = context.bot
 
-    try_delete(bot, update, msg)
-
     chat, _ = Chat.objects.get_or_create(id=msg.chat_id)
-    reply_markup = get_reply_markup(chat.reactions())
+    reply_markup = get_reply_markup(bot, chat.reactions())
 
     config = {
         'chat_id': msg.chat_id,
@@ -25,33 +23,25 @@ def process_message(update: Update, context: CallbackContext, msg_type: str):
         'parse_mode': 'HTML',
         'reply_markup': reply_markup,
     }
+    if msg_type in ('photo', 'video', 'animation'):
+        config['caption'] = msg.caption_html
     if msg_type == 'photo':
-        config.update({
-            'caption': msg.caption_html,
-            'photo': msg.photo[0].file_id,
-        })
+        config['photo'] = msg.photo[0].file_id
         sent_msg = bot.send_photo(**config)
     elif msg_type == 'video':
-        config.update({
-            'caption': msg.caption_html,
-            'video': msg.video.file_id,
-        })
+        config['video'] = msg.video.file_id
         sent_msg = bot.send_video(**config)
     elif msg_type == 'animation':
-        config.update({
-            'caption': msg.caption_html,
-            'animation': msg.animation.file_id,
-        })
+        config['animation'] = msg.animation.file_id
         sent_msg = bot.send_animation(**config)
     elif msg_type == 'text':
-        config.update({
-            'text': msg.text_html,
-        })
+        config['text'] = msg.text_html
         sent_msg = bot.send_message(**config)
     else:
         sent_msg = None
 
     if sent_msg:
+        try_delete(bot, update, msg)
         MessageModel.objects.create(sent_msg.chat_id, sent_msg.message_id)
 
 
@@ -76,7 +66,7 @@ def handle_message(update: Update, context: CallbackContext):
         msg_type = 'animation'
     elif msg.document:
         msg_type = 'doc'
-    elif msg.entities and any((e['type'] == 'url' for e in msg.entities)):
+    elif any((e['type'] == 'url' for e in msg.entities)):
         msg_type = 'link'
     elif msg.text:
         msg_type = 'text'
