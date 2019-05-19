@@ -1,7 +1,7 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import CallbackContext
 
-from core.models import Chat
+from core.models import Chat, Message
 
 
 def get_credits(update: Update):
@@ -24,6 +24,27 @@ def get_credits(update: Update):
             'forward_chat_username': f.username,
             'forward_chat_message_id': msg.forward_from_message_id,
         })
+    return data
+
+
+def get_credits_from_message(message: Message):
+    data = {
+        'from_name': message.from_user.name,
+        'from_username': message.from_user.username,
+    }
+    ff = message.from_forward
+    if ff:
+        if not ff.is_chat:
+            data.update({
+                'forward_name': ff.name,
+                'forward_username': ff.username,
+            })
+        else:
+            data.update({
+                'forward_chat_name': ff.name,
+                'forward_chat_username': ff.username,
+                'forward_chat_message_id': message.forward_from_message_id,
+            })
     return data
 
 
@@ -74,12 +95,11 @@ def make_credits_buttons(
 
 
 def make_reply_markup(
-    update: Update,
     context: CallbackContext,
     rates: list,
     padding=False,
     max_cols=5,
-    show_credits=False,
+    credits=None,
 ):
     keys = []
     for rate in rates:
@@ -91,8 +111,7 @@ def make_reply_markup(
         keys.append(InlineKeyboardButton(text, callback_data=payload))
 
     keyboard = []
-    if show_credits:
-        credits = get_credits(update)
+    if credits:
         keyboard.append(make_credits_buttons(**credits))
     while keys:
         line = keys[:max_cols]
@@ -107,16 +126,22 @@ def make_reply_markup(
     return InlineKeyboardMarkup(keyboard)
 
 
-def make_reply_markup_from_chat(update, context, reactions=None, chat=None):
+def make_reply_markup_from_chat(update, context, reactions=None, chat=None, message=None):
     if not chat:
         chat, _ = Chat.objects.get_or_create(id=update.effective_message.chat_id)
     if not reactions:
         reactions = chat.reactions()
+    if chat.show_credits:
+        if message:
+            credits = get_credits_from_message(message)
+        else:
+            credits = get_credits(update)
+    else:
+        credits = None
     reply_markup = make_reply_markup(
-        update,
         context,
         reactions,
-        show_credits=chat.show_credits,
+        credits=credits,
         padding=chat.add_padding,
         max_cols=chat.columns,
     )

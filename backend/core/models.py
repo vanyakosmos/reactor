@@ -11,6 +11,7 @@ class TGUser(models.Model):
     id = CharField(unique=True, primary_key=True, help_text="Telegram user ID.")
     username = CharField(blank=True, null=True)
     name = CharField()
+    is_chat = models.BooleanField(default=False)
 
     @property
     def url(self):
@@ -45,7 +46,7 @@ class Chat(models.Model):
         return f"Chat({self.id}, {self.buttons})"
 
 
-class MessageManager(models.Manager):
+class MessageQuerySet(models.QuerySet):
     def get_by_ids(self, chat_id, message_id):
         umid = Message.get_id(chat_id, message_id)
         return Message.objects.get(id=umid)
@@ -92,7 +93,7 @@ class Message(models.Model):
         null=True,
     )
 
-    objects = MessageManager()
+    objects = MessageQuerySet.as_manager()
 
     @property
     def from_url(self):

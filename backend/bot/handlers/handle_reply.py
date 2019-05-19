@@ -4,7 +4,7 @@ import re
 from telegram import Update
 from telegram.ext import CallbackContext, Filters
 
-from core.models import Button, Message as MessageModel, Reaction
+from core.models import Button, Message as MessageModel, Reaction, Message
 from .markup import make_reply_markup_from_chat
 from .utils import message_handler, try_delete
 
@@ -37,5 +37,6 @@ def handle_reply(update: Update, context: CallbackContext):
         button_text=reaction,
     )
     reactions = Button.objects.reactions(reply.chat_id, reply.message_id)
-    _, reply_markup = make_reply_markup_from_chat(update, context, reactions)
+    message = Message.objects.prefetch_related().get_by_ids(reply.chat_id, reply.message_id)
+    _, reply_markup = make_reply_markup_from_chat(update, context, reactions, message=message)
     reply.edit_reply_markup(reply_markup=reply_markup)

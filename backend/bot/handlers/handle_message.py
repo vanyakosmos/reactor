@@ -39,6 +39,7 @@ def get_forward_user(msg: Message):
             defaults={
                 'username': f.username,
                 'name': f.title,
+                'is_chat': True,
             },
         )
     else:
