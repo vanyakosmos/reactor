@@ -1,6 +1,6 @@
 from django.core.management import BaseCommand
 
-from bot.main import run
+from bot.run import run
 
 
 class Command(BaseCommand):

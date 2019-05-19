@@ -80,7 +80,6 @@ class Message(models.Model):
 class ButtonManager(models.Manager):
     def filter_by_message(self, chat_id, message_id):
         umid = Message.get_id(chat_id, message_id)
-        print(umid)
         return self.filter(message_id=umid)
 
     def reactions(self, chat_id, message_id):

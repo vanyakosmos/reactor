@@ -2,8 +2,8 @@ import functools
 
 from telegram.ext import CommandHandler, MessageHandler
 
+from bot.mwt import MWT
 from core.models import Chat
-from .mwt import MWT
 
 
 def get_chat(update) -> Chat:
