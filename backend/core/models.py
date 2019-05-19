@@ -3,12 +3,36 @@ from django.db import models
 
 from .fields import CharField
 
-__all__ = ['Chat', 'Message', 'Button', 'Reaction']
+__all__ = ['Chat', 'Message', 'Button', 'Reaction', 'TGUser']
+
+
+class TGUser(models.Model):
+    """Telegram user or chat that hold information about original message sender."""
+    id = CharField(unique=True, primary_key=True, help_text="Telegram user ID.")
+    username = CharField(blank=True, null=True)
+    name = CharField()
+
+    @property
+    def url(self):
+        if self.username:
+            return f'https://t.me/{self.username}'
+
+
+def default_buttons():
+    return ['👍', '👎']
+
+
+def default_allowed_types():
+    return ['photo', 'video', 'animation', 'link', 'forward']
 
 
 class Chat(models.Model):
     id = CharField(unique=True, primary_key=True, help_text="Telegram chat ID.")
-    buttons = ArrayField(models.CharField(max_length=100), default=list)
+    buttons = ArrayField(models.CharField(max_length=100), default=default_buttons)
+    show_credits = models.BooleanField(default=True)
+    add_padding = models.BooleanField(default=True)
+    columns = models.IntegerField(default=4)
+    allowed_types = ArrayField(models.CharField(max_length=100), default=default_allowed_types)
 
     def reactions(self):
         return [{
@@ -47,8 +71,39 @@ class Message(models.Model):
         help_text="Telegram message ID merged with chat ID.",
     )
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE)
+    original_message_id = CharField(
+        help_text="Telegram ID of original message w/o appended chat ID."
+    )
+    forward_from_message_id = CharField(
+        blank=True,
+        null=True,
+        help_text="Telegram ID of original forwarded message w/o appended chat ID."
+    )
+    from_user = models.ForeignKey(
+        TGUser,
+        on_delete=models.CASCADE,
+        related_name='messages',
+    )
+    from_forward = models.ForeignKey(
+        TGUser,
+        on_delete=models.SET_NULL,
+        related_name='forward_messages',
+        blank=True,
+        null=True,
+    )
 
     objects = MessageManager()
+
+    @property
+    def from_url(self):
+        return self.from_user.url
+
+    @property
+    def from_forward_url(self):
+        if self.from_forward:
+            base_url = self.from_forward.url
+            if base_url:
+                return f'{base_url}/{self.forward_from_message_id}'
 
     @classmethod
     def get_id(cls, chat_id, message_id):
@@ -144,14 +199,14 @@ class ReactionManager(models.Manager):
 
 
 class Reaction(models.Model):
-    user_id = CharField(help_text="Telegram user ID.")
+    user = models.ForeignKey(TGUser, on_delete=models.CASCADE)
     message = models.ForeignKey(Message, on_delete=models.CASCADE)
     button = models.ForeignKey(Button, on_delete=models.CASCADE)
 
     objects = ReactionManager()
 
     class Meta:
-        unique_together = ('user_id', 'message')
+        unique_together = ('user', 'message')
 
     def __str__(self):
         return f"R({self.user_id} {self.message_id} {self.button.text})"

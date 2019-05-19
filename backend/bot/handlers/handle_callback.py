@@ -3,8 +3,8 @@ import logging
 from telegram import Update
 from telegram.ext import CallbackContext
 
-from core.models import Button, Reaction
-from .markup import get_reply_markup
+from core.models import Button, Reaction, Chat
+from .markup import make_reply_markup_from_chat
 
 logger = logging.getLogger(__name__)
 
@@ -30,5 +30,6 @@ def handle_button_callback(update: Update, context: CallbackContext):
     )
     reply_to_reaction(context.bot, query, button, reaction)
     reactions = Button.objects.reactions(msg.chat_id, msg.message_id)
-    reply_markup = get_reply_markup(context.bot, reactions)
+    Chat.objects.get_or_create()
+    _, reply_markup = make_reply_markup_from_chat(update, context, reactions)
     msg.edit_reply_markup(reply_markup=reply_markup)

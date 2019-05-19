@@ -4,9 +4,7 @@ from django.conf import settings
 from telegram.ext import CallbackQueryHandler, Updater
 
 from .handlers import (
-    command_get_buttons,
-    command_help,
-    command_set_buttons,
+    commands,
     handle_button_callback,
     handle_error,
     handle_message,
@@ -23,9 +21,15 @@ def run():
 
     handlers = [
         CallbackQueryHandler(handle_button_callback),
-        command_help,
-        command_get_buttons,
-        command_set_buttons,
+        commands.command_help,
+        commands.command_get_buttons,
+        commands.command_set_buttons,
+        commands.command_credits,
+        commands.command_padding,
+        commands.command_columns,
+        commands.command_allowed,
+        commands.command_add_allowed,
+        commands.command_remove_allowed,
         handle_reply,
         handle_new_member,
         handle_message,

@@ -41,7 +41,7 @@ def command_set_buttons(update: Update, context: CallbackContext):
 
 
 @command('credits', pass_args=True)
-def command_show_credits(update: Update, context: CallbackContext):
+def command_credits(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) != 1:
         update.message.reply_text("Specify show/hide option.")
@@ -50,15 +50,18 @@ def command_show_credits(update: Update, context: CallbackContext):
     if option == 'show':
         chat.show_credits = True
         chat.save()
+        reply = f"Will show message credits."
     elif option == 'hide':
         chat.show_credits = False
         chat.save()
+        reply = f"Will not show message credits."
     else:
-        update.message.reply_text(f"Unknown option '{option}'. Should be show or hide.")
+        reply = f"Unknown option '{option}'. Should be show or hide."
+    update.message.reply_text(reply)
 
 
 @command('padding', pass_args=True)
-def command_show_credits(update: Update, context: CallbackContext):
+def command_padding(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) != 1:
         update.message.reply_text("Specify add/remove option.")
@@ -67,27 +70,40 @@ def command_show_credits(update: Update, context: CallbackContext):
     if option == 'add':
         chat.add_padding = True
         chat.save()
+        reply = "Will add padding to buttons."
     elif option == 'remove':
         chat.add_padding = False
         chat.save()
+        reply = "Will not add padding to buttons."
     else:
-        update.message.reply_text(f"Unknown option '{option}'. Should be add or remove.")
+        reply = f"Unknown option '{option}'. Should be add or remove."
+    update.message.reply_text(reply)
 
 
-@command('row', pass_args=True)
-def command_show_credits(update: Update, context: CallbackContext):
+@command('columns', pass_args=True)
+def command_columns(update: Update, context: CallbackContext):
     chat = get_chat(update)
-    if len(context.args) != 1 or context.args[0].isdecimal():
-        update.message.reply_text("Specify number of buttons per row.")
+    if len(context.args) != 1 or not context.args[0].isdecimal():
+        update.message.reply_text("Specify number of buttons per row (number of columns).")
         return
     option = int(context.args[0])
-    chat.buttons_per_row = option
+    if not 1 <= option <= 10:
+        update.message.reply_text("Number of columns should be between 1 and 10.")
+        return
+    chat.columns = option
     chat.save()
     update.message.reply_text(f"New number of buttons per row: {option}.")
 
 
+@command('allowed', pass_args=True)
+def command_allowed(update: Update, context: CallbackContext):
+    chat = get_chat(update)
+    types_str = ', '.join(chat.allowed_types)
+    update.message.reply_text(f"Allowed types: {types_str}.")
+
+
 @command('add_allowed', pass_args=True)
-def command_show_credits(update: Update, context: CallbackContext):
+def command_add_allowed(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) < 1:
         update.message.reply_text("Specify at least one type.")
@@ -103,7 +119,7 @@ def command_show_credits(update: Update, context: CallbackContext):
 
 
 @command('remove_allowed', pass_args=True)
-def command_show_credits(update: Update, context: CallbackContext):
+def command_remove_allowed(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) < 1:
         update.message.reply_text("Specify at least one type.")

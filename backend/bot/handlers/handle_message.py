@@ -1,21 +1,56 @@
 import logging
 
-from telegram import Update
+from telegram import Update, Message
 from telegram.ext import CallbackContext, Filters
 
-from core.models import Chat, Message as MessageModel
-from .markup import get_reply_markup
+from core.models import Chat, Message as MessageModel, TGUser
+from .markup import make_reply_markup_from_chat
 from .utils import message_handler, try_delete
 
 logger = logging.getLogger(__name__)
 
 
-def process_message(update: Update, context: CallbackContext, msg_type: str):
+def get_user(update: Update):
+    u = update.effective_user
+    user, _ = TGUser.objects.get_or_create(
+        id=u.id,
+        defaults={
+            'username': u.username,
+            'name': u.full_name,
+        },
+    )
+    return user
+
+
+def get_forward_user(msg: Message):
+    if msg.forward_from:
+        f = msg.forward_from
+        forward, _ = TGUser.objects.get_or_create(
+            id=f.id,
+            defaults={
+                'username': f.username,
+                'name': f.full_name,
+            },
+        )
+    elif msg.forward_from_chat:
+        f = msg.forward_from_chat
+        forward, _ = TGUser.objects.get_or_create(
+            id=f.id,
+            defaults={
+                'username': f.username,
+                'name': f.title,
+            },
+        )
+    else:
+        forward = None
+    return forward
+
+
+def process_message(update: Update, context: CallbackContext, msg_type: str, chat: Chat):
     msg = update.effective_message
     bot = context.bot
 
-    chat, _ = Chat.objects.get_or_create(id=msg.chat_id)
-    reply_markup = get_reply_markup(bot, chat.reactions())
+    chat, reply_markup = make_reply_markup_from_chat(update, context, chat=chat)
 
     config = {
         'chat_id': msg.chat_id,
@@ -42,7 +77,14 @@ def process_message(update: Update, context: CallbackContext, msg_type: str):
 
     if sent_msg:
         try_delete(bot, update, msg)
-        MessageModel.objects.create(sent_msg.chat_id, sent_msg.message_id)
+        MessageModel.objects.create(
+            sent_msg.chat_id,
+            sent_msg.message_id,
+            original_message_id=msg.message_id,
+            forward_from_message_id=msg.forward_from_message_id,
+            from_user=get_user(update),
+            from_forward=get_forward_user(msg),
+        )
 
 
 @message_handler(
@@ -52,8 +94,9 @@ def process_message(update: Update, context: CallbackContext, msg_type: str):
 def handle_message(update: Update, context: CallbackContext):
     msg = update.effective_message
 
-    allowed_types = {'photo', 'video', 'animation', 'link'}
-    allow_forward = True
+    chat, _ = Chat.objects.get_or_create(id=msg.chat_id)
+    allowed_types = chat.allowed_types
+    allow_forward = 'forward' in allowed_types
 
     forward = bool(msg.forward_date)
     if msg.media_group_id:
@@ -73,4 +116,4 @@ def handle_message(update: Update, context: CallbackContext):
     else:
         msg_type = 'unknown'
     if msg_type in allowed_types or forward and allow_forward:
-        process_message(update, context, msg_type)
+        process_message(update, context, msg_type, chat)
