@@ -150,3 +150,6 @@ LOGGING = {
         },
     }
 }
+
+# redis
+REDIS_URL = os.getenv('REDIS_URL', f'redis://localhost:6379/0')

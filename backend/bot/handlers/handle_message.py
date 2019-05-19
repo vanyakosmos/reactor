@@ -3,6 +3,7 @@ import logging
 from telegram import Update, Message
 from telegram.ext import CallbackContext, Filters
 
+from bot.redis import save_media_group
 from core.models import Chat, Message as MessageModel, TGUser
 from .markup import make_reply_markup_from_chat
 from .utils import message_handler, try_delete
@@ -73,11 +74,16 @@ def process_message(update: Update, context: CallbackContext, msg_type: str, cha
     elif msg_type == 'text':
         config['text'] = msg.text_html
         sent_msg = bot.send_message(**config)
+    elif msg_type == 'album':
+        config.pop('chat_id')
+        config['text'] = '^'
+        sent_msg = msg.reply_text(**config)
     else:
         sent_msg = None
 
     if sent_msg:
-        try_delete(bot, update, msg)
+        if msg_type != 'album':
+            try_delete(bot, update, msg)
         MessageModel.objects.create(
             sent_msg.chat_id,
             sent_msg.message_id,
@@ -99,9 +105,11 @@ def handle_message(update: Update, context: CallbackContext):
     allowed_types = chat.allowed_types
     allow_forward = 'forward' in allowed_types
 
+    msg_type = 'unknown'
     forward = bool(msg.forward_date)
     if msg.media_group_id:
-        msg_type = 'album'
+        if save_media_group(msg.media_group_id):
+            msg_type = 'album'
     elif msg.photo:
         msg_type = 'photo'
     elif msg.video:
@@ -114,7 +122,6 @@ def handle_message(update: Update, context: CallbackContext):
         msg_type = 'link'
     elif msg.text:
         msg_type = 'text'
-    else:
-        msg_type = 'unknown'
+
     if msg_type in allowed_types or forward and allow_forward:
         process_message(update, context, msg_type, chat)

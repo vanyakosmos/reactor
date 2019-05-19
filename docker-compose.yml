@@ -10,6 +10,14 @@ services:
     ports:
       - 5432:5432
 
+  redis:
+    image: redis:5
+    hostname: redis
+    volumes:
+      - redisdata:/data
+    ports:
+      - 6379:6379
 
 volumes:
   dbdata:
+  redisdata:

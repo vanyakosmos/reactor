@@ -121,7 +121,7 @@ def command_add_allowed(update: Update, context: CallbackContext):
         return
 
     types = set(chat.allowed_types) | set(context.args)
-    allowed = {'photo', 'video', 'animation', 'text', 'link', 'forward'}
+    allowed = {'photo', 'video', 'animation', 'text', 'link', 'forward', 'album'}
     types = list(filter(lambda e: e in allowed, types))
     chat.allowed_types = types
     chat.save()
