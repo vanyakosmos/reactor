@@ -4,7 +4,7 @@ from django.utils.datastructures import OrderedSet
 from telegram import ParseMode, Update
 from telegram.ext import CallbackContext
 
-from .utils import command, get_chat
+from .utils import command, get_chat, admin_required
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +16,12 @@ def command_help(update: Update, context: CallbackContext):
         "`/help` - print this message",
         "`/set <button> [<button>...]` - set up buttons",
         "`/get` - get list of default buttons for this chat",
+        "`/credits show|hide` - show how posted message message",
+        "`/padding add|remove` - add padding to buttons",
+        "`/columns <number>` - number of buttons in row [1, 10]",
+        "`/allowed` - show allowed for reposting message types",
+        "`/add_allowed <type> [<type>...]` - add allowed types",
+        "`/remove_allowed <type> [<type>...]` - remove allowed types",
     ])
     update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
@@ -28,6 +34,7 @@ def command_get_buttons(update: Update, context: CallbackContext):
 
 
 @command('set', pass_args=True)
+@admin_required
 def command_set_buttons(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) > 80:
@@ -41,6 +48,7 @@ def command_set_buttons(update: Update, context: CallbackContext):
 
 
 @command('credits', pass_args=True)
+@admin_required
 def command_credits(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) != 1:
@@ -61,6 +69,7 @@ def command_credits(update: Update, context: CallbackContext):
 
 
 @command('padding', pass_args=True)
+@admin_required
 def command_padding(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) != 1:
@@ -81,6 +90,7 @@ def command_padding(update: Update, context: CallbackContext):
 
 
 @command('columns', pass_args=True)
+@admin_required
 def command_columns(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) != 1 or not context.args[0].isdecimal():
@@ -98,11 +108,12 @@ def command_columns(update: Update, context: CallbackContext):
 @command('allowed', pass_args=True)
 def command_allowed(update: Update, context: CallbackContext):
     chat = get_chat(update)
-    types_str = ', '.join(chat.allowed_types)
+    types_str = ', '.join(sorted(chat.allowed_types))
     update.message.reply_text(f"Allowed types: {types_str}.")
 
 
 @command('add_allowed', pass_args=True)
+@admin_required
 def command_add_allowed(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) < 1:
@@ -114,11 +125,12 @@ def command_add_allowed(update: Update, context: CallbackContext):
     types = list(filter(lambda e: e in allowed, types))
     chat.allowed_types = types
     chat.save()
-    types_str = ', '.join(types)
+    types_str = ', '.join(sorted(types))
     update.message.reply_text(f"Allowed types: {types_str}.")
 
 
 @command('remove_allowed', pass_args=True)
+@admin_required
 def command_remove_allowed(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) < 1:
@@ -129,5 +141,5 @@ def command_remove_allowed(update: Update, context: CallbackContext):
     types = list(types)
     chat.allowed_types = types
     chat.save()
-    types_str = ', '.join(types)
+    types_str = ', '.join(sorted(types))
     update.message.reply_text(f"Allowed types: {types_str}.")

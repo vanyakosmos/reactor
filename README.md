@@ -7,7 +7,7 @@ Telegram bot that automatically add reaction buttons to messages (similar to sla
 - [x] add basic bot functionality: messages reposting, reply reactions, chat default buttons
 - [ ] add reactions to albums without reposting each photo
 - [x] show credits of original message: who posted, from whom forwarded
-- [ ] allow to change bot settings only to chat admins
+- [x] allow to change bot settings only to chat's admins
 - [ ] add more settings: 
   - [x] number of buttons in row
   - [x] types of messages to be reposted

@@ -1,7 +1,7 @@
 import logging
 
 from telegram import Update
-from telegram.ext import CallbackContext
+from telegram.ext import CallbackContext, run_async
 
 from core.models import Button, Reaction, Message
 from .markup import make_reply_markup_from_chat
@@ -17,6 +17,7 @@ def reply_to_reaction(bot, query, button, reaction):
     bot.answer_callback_query(query.id, reply)
 
 
+@run_async
 def handle_button_callback(update: Update, context: CallbackContext):
     msg = update.effective_message
     user = update.effective_user

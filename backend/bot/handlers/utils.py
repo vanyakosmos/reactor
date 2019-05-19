@@ -40,6 +40,10 @@ def get_admin_ids(bot, chat_id):
     return [admin.user.id for admin in bot.get_chat_administrators(chat_id)]
 
 
+def user_is_admin(bot, update):
+    return update.effective_user.id in get_admin_ids(bot, update.message.chat_id)
+
+
 def bot_is_admin(bot, update):
     return bot.id in get_admin_ids(bot, update.message.chat_id)
 
@@ -47,3 +51,12 @@ def bot_is_admin(bot, update):
 def try_delete(bot, update, msg):
     if bot_is_admin(bot, update):
         msg.delete()
+
+
+def admin_required(f):
+    def dec(update, context):
+        if user_is_admin(context.bot, update):
+            return f(update, context)
+        update.message.reply_text("Only admin can use this command.")
+
+    return dec
