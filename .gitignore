@@ -108,3 +108,4 @@ venv.bak/
 .envs/*
 !.envs/.examples
 playground.py
+docker-compose.override.yml

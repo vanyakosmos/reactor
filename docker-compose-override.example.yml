@@ -1,0 +1,29 @@
+version: '3'
+
+services:
+  db:
+    ports:
+      - 5432:5432
+    env_file:
+      - .envs/.local/postgres.env
+
+  redis:
+    ports:
+      - 6379:6379
+
+  app:
+    command: ["./scripts/run.sh", "dev"]
+    env_file:
+      - .envs/.local/app.env
+      - .envs/.local/postgres.env
+    volumes:
+      - ./backend:/app
+    ports:
+      - 8000:8000
+
+  bot:
+    env_file:
+      - .envs/.local/app.env
+      - .envs/.local/postgres.env
+    volumes:
+      - ./backend:/app

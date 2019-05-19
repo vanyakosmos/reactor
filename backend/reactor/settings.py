@@ -1,10 +1,5 @@
 import os
 
-from dotenv import find_dotenv, load_dotenv
-
-load_dotenv('../.envs/.local/.app')
-load_dotenv('../.envs/.local/.postgres')
-
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -73,7 +68,7 @@ DATABASES = {
         'NAME': os.getenv('POSTGRES_DB'),
         'USER': os.getenv('POSTGRES_USER'),
         'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-        'HOST': 'localhost',
+        'HOST': os.getenv('POSTGRES_HOST'),
         'PORT': os.getenv('POSTGRES_PORT'),
     }
 }
@@ -139,17 +134,20 @@ LOGGING = {
         'core': {
             'handlers': ['console'],
             'level': 'DEBUG',
+            'propagate': False,
         },
         'bot': {
             'handlers': ['console'],
             'level': 'DEBUG',
+            'propagate': False,
         },
         '': {
             'handlers': ['console'],
             'level': 'INFO',
+            'propagate': False,
         },
     }
 }
 
 # redis
-REDIS_URL = os.getenv('REDIS_URL', f'redis://localhost:6379/0')
+REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')

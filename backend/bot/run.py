@@ -40,6 +40,6 @@ def run():
         dp.add_handler(handler)
     dp.add_error_handler(handle_error)
 
-    print('start polling...')
+    logger.info('start polling...')
     updater.start_polling()
     updater.idle()

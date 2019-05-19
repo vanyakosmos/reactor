@@ -1,4 +1,12 @@
-version: "3"
+version: "3.7"
+
+x-app: &app
+  build: ./backend
+  image: reactor_app
+  env_file:
+    - .envs/.production/app.env
+    - .envs/.production/postgres.env
+
 
 services:
   db:
@@ -6,17 +14,26 @@ services:
     hostname: db
     volumes:
       - dbdata:/var/lib/postgresql/data
-    env_file: .envs/.local/.postgres
-    ports:
-      - 5432:5432
+    env_file: .envs/.production/postgres.env
 
   redis:
     image: redis:5
     hostname: redis
     volumes:
       - redisdata:/data
-    ports:
-      - 6379:6379
+
+  app:
+    <<: *app
+    command: ["./scripts/run.sh", "prod"]
+    depends_on:
+      - db
+
+  bot:
+    <<: *app
+    command: ["./manage.py", "runbot"]
+    depends_on:
+      - db
+      - redis
 
 volumes:
   dbdata:
