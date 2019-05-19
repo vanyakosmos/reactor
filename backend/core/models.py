@@ -34,7 +34,7 @@ class MessageManager(models.Manager):
         umid = Message.get_id(chat_id, message_id)
         msg = super().create(id=umid, chat_id=chat_id, **kwargs)
         Button.objects.bulk_create([
-            Button(message=msg, index=index, text=text)
+            Button(message=msg, index=index, text=text, permanent=True)
             for index, text in enumerate(msg.chat.buttons)
         ])
         return msg
@@ -53,28 +53,12 @@ class Message(models.Model):
     @classmethod
     def get_id(cls, chat_id, message_id):
         """merge chat_id and message_id to create globally unique Message ID"""
-        if Message.is_id(message_id):
+        if isinstance(message_id, str) and '~' in message_id:
             return message_id
-        return Message.make_id(chat_id, message_id)
-
-    @classmethod
-    def make_id(cls, chat_id, message_id):
         return f'{chat_id}~{message_id}'
 
-    @classmethod
-    def is_id(cls, m_id):
-        return isinstance(m_id, str) and '~' in m_id
-
-    def reactions(self):
-        return [{
-            'id': b.id,
-            'index': b.index,
-            'text': b.text,
-            'count': b.count,
-        } for b in self.button_set.all()]
-
     def __str__(self):
-        return f"<Message {self.id}>"
+        return f"Message({self.id})"
 
 
 class ButtonManager(models.Manager):
@@ -96,6 +80,7 @@ class Button(models.Model):
     index = models.IntegerField()
     text = CharField(max_length=100)
     count = models.IntegerField(default=0)
+    permanent = models.BooleanField(default=False)
 
     objects = ButtonManager()
 
@@ -103,15 +88,15 @@ class Button(models.Model):
         self.count += 1
         self.save()
 
-    def dec(self, chat: Chat):
-        if self.count == 1 and self.text not in chat.buttons:
+    def dec(self):
+        if self.count == 1 and not self.permanent:
             self.delete()
         else:
             self.count -= 1
             self.save()
 
     def __str__(self):
-        return f"<B {self.text} {self.count}>"
+        return f"B({self.text} {self.count})"
 
     class Meta:
         unique_together = ('message', 'text')
@@ -129,7 +114,6 @@ class ReactionManager(models.Manager):
         """
         univ_message_id = Message.get_id(chat_id, message_id)
         button = Button.objects.get(message__id=univ_message_id, text=button_text)
-        chat, _ = Chat.objects.get_or_create(id=chat_id)
         try:
             r = Reaction.objects.get(
                 user_id=user_id,
@@ -140,11 +124,11 @@ class ReactionManager(models.Manager):
             if r.button_id == button.id:
                 r.delete()
                 r = None
-                button.dec(chat)
+                button.dec()
             else:
                 # clicked another button -> change reaction
                 old_btn = r.button
-                old_btn.dec(chat)
+                old_btn.dec()
                 button.inc()
                 r.button = button
                 r.save()
@@ -170,4 +154,4 @@ class Reaction(models.Model):
         unique_together = ('user_id', 'message')
 
     def __str__(self):
-        return f"<R {self.user_id} {self.message_id} {self.button.text}>"
+        return f"R({self.user_id} {self.message_id} {self.button.text})"

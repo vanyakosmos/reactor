@@ -27,7 +27,8 @@ def handle_reply(update: Update, context: CallbackContext):
         Button.objects.get(message_id=umid, text=reaction)
     except Button.DoesNotExist:
         b = Button.objects.filter_by_message(reply.chat_id, reply.message_id).last()
-        Button.objects.create(message_id=umid, text=reaction, index=b.index + 1)
+        index = b.index + 1 if b else 0
+        Button.objects.create(message_id=umid, text=reaction, index=index)
 
     Reaction.objects.react(
         user_id=user.id,
