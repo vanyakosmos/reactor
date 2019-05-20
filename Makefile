@@ -1,5 +1,5 @@
 schema:
-	./manage.py graph_models core -o schema.png
+	./backend/manage.py graph_models core -o schema.png
 
 test:
 	cd backend && pytest -vv

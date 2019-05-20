@@ -3,4 +3,6 @@ based_on_style = facebook
 column_limit = 100
 space_between_ending_comma_and_closing_bracket = false
 coalesce_brackets = true
-dedent_closing_brackets = true
+split_before_dot = true
+split_before_expression_after_opening_paren = true
+split_complex_comprehension = true
