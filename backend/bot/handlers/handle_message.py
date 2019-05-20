@@ -1,10 +1,10 @@
 import logging
 
-from telegram import Update, Message
+from telegram import Update, Message as TGMessage, User as TGUser, Chat as TGChat
 from telegram.ext import CallbackContext, Filters
 
 from bot.redis import save_media_group
-from core.models import Chat, Message as MessageModel, TGUser
+from core.models import Chat, Message, User
 from .markup import make_reply_markup_from_chat
 from .utils import message_handler, try_delete
 
@@ -12,44 +12,55 @@ logger = logging.getLogger(__name__)
 
 
 def get_user(update: Update):
-    u = update.effective_user
-    user, _ = TGUser.objects.get_or_create(
+    u: TGUser = update.effective_user
+    user, _ = User.objects.update_or_create(
         id=u.id,
         defaults={
             'username': u.username,
-            'name': u.full_name,
+            'first_name': u.first_name,
+            'last_name': u.last_name,
         },
     )
     return user
 
 
-def get_forward_user(msg: Message):
+def get_forward_from(msg: TGMessage):
     if msg.forward_from:
-        f = msg.forward_from
-        forward, _ = TGUser.objects.get_or_create(
-            id=f.id,
+        u: TGUser = msg.forward_from
+        forward, _ = User.objects.update_or_create(
+            id=u.id,
             defaults={
-                'username': f.username,
-                'name': f.full_name,
+                'username': u.username,
+                'first_name': u.first_name,
+                'last_name': u.last_name,
             },
         )
-    elif msg.forward_from_chat:
-        f = msg.forward_from_chat
-        forward, _ = TGUser.objects.get_or_create(
-            id=f.id,
-            defaults={
-                'username': f.username,
-                'name': f.title,
-                'is_chat': True,
-            },
-        )
+        return forward
+
+
+def get_chat_from_tg_chat(tg_chat: TGChat) -> Chat:
+    if tg_chat.last_name:
+        fallback_name = f'{tg_chat.first_name} {tg_chat.last_name}'
     else:
-        forward = None
-    return forward
+        fallback_name = tg_chat.first_name
+    chat, _ = Chat.objects.update_or_create(
+        id=tg_chat.id,
+        defaults={
+            'type': tg_chat.type,
+            'username': tg_chat.username,
+            'title': tg_chat.title or fallback_name,
+        },
+    )
+    return chat
+
+
+def get_forward_from_chat(msg: TGMessage):
+    if msg.forward_from_chat:
+        return get_chat_from_tg_chat(msg.forward_from_chat)
 
 
 def process_message(update: Update, context: CallbackContext, msg_type: str, chat: Chat):
-    msg = update.effective_message
+    msg: TGMessage = update.effective_message
     bot = context.bot
 
     chat, reply_markup = make_reply_markup_from_chat(update, context, chat=chat)
@@ -84,13 +95,15 @@ def process_message(update: Update, context: CallbackContext, msg_type: str, cha
     if sent_msg:
         if msg_type != 'album':
             try_delete(bot, update, msg)
-        MessageModel.objects.create(
+        Message.objects.create(
             sent_msg.chat_id,
             sent_msg.message_id,
+            date=msg.date,
             original_message_id=msg.message_id,
-            forward_from_message_id=msg.forward_from_message_id,
             from_user=get_user(update),
-            from_forward=get_forward_user(msg),
+            forward_from=get_forward_from(msg),
+            forward_from_chat=get_forward_from_chat(msg),
+            forward_from_message_id=msg.forward_from_message_id,
         )
 
 
@@ -101,7 +114,7 @@ def process_message(update: Update, context: CallbackContext, msg_type: str, cha
 def handle_message(update: Update, context: CallbackContext):
     msg = update.effective_message
 
-    chat, _ = Chat.objects.get_or_create(id=msg.chat_id)
+    chat = get_chat_from_tg_chat(update.effective_chat)
     allowed_types = chat.allowed_types
     allow_forward = 'forward' in allowed_types
 

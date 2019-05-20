@@ -1,6 +1,6 @@
 import functools
 
-from telegram.ext import CommandHandler, MessageHandler
+from telegram.ext import CommandHandler, MessageHandler, CallbackQueryHandler
 
 from bot.mwt import MWT
 from core.models import Chat
@@ -10,28 +10,29 @@ def get_chat(update) -> Chat:
     return Chat.objects.get_or_create(id=str(update.effective_chat.id))[0]
 
 
-def command(name, *args, **kwargs):
-    def wrapper(f):
-        @functools.wraps(f)
-        def dec(*args2, **kwargs2):
-            return f(*args2, **kwargs2)
+def handler_decorator_factory(handler_class):
+    def handle_decorator(*args, admin_required=False, **kwargs):
+        def wrapper(f):
+            @functools.wraps(f)
+            def dec(update, context):
+                if admin_required:
+                    if user_is_admin(context.bot, update):
+                        return f(update, context)
+                    update.message.reply_text("Only admin can use this command.")
+                else:
+                    return f(update, context)
 
-        dec.handler = CommandHandler(name, dec, *args, **kwargs)
-        return dec
+            dec.handler = handler_class(*args, callback=dec, **kwargs)
+            return dec
 
-    return wrapper
+        return wrapper
+
+    return handle_decorator
 
 
-def message_handler(filters, *args, **kwargs):
-    def wrapper(f):
-        @functools.wraps(f)
-        def dec(*args2, **kwargs2):
-            return f(*args2, **kwargs2)
-
-        dec.handler = MessageHandler(filters, dec, *args, **kwargs)
-        return dec
-
-    return wrapper
+command = handler_decorator_factory(CommandHandler)
+message_handler = handler_decorator_factory(MessageHandler)
+callback_query_handler = handler_decorator_factory(CallbackQueryHandler)
 
 
 @MWT(timeout=60 * 60)
@@ -51,12 +52,3 @@ def bot_is_admin(bot, update):
 def try_delete(bot, update, msg):
     if bot_is_admin(bot, update):
         msg.delete()
-
-
-def admin_required(f):
-    def dec(update, context):
-        if user_is_admin(context.bot, update):
-            return f(update, context)
-        update.message.reply_text("Only admin can use this command.")
-
-    return dec

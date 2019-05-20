@@ -1,11 +1,12 @@
 import logging
 
 from django.conf import settings
-from telegram.ext import CallbackQueryHandler, Updater
+from telegram.ext import Updater
 
 from .handlers import (
     commands,
     handle_button_callback,
+    handle_empty_callback,
     handle_error,
     handle_message,
     handle_new_member,
@@ -20,7 +21,8 @@ def run():
     dp = updater.dispatcher
 
     handlers = [
-        CallbackQueryHandler(handle_button_callback),
+        handle_button_callback,
+        handle_empty_callback,
         commands.command_help,
         commands.command_get_buttons,
         commands.command_set_buttons,

@@ -1,17 +1,39 @@
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
+from telegram import Chat as TGChat, Message as TGMessage, User as TGUser
 
 from .fields import CharField
 
-__all__ = ['Chat', 'Message', 'Button', 'Reaction', 'TGUser']
+__all__ = ['Chat', 'Message', 'Button', 'Reaction', 'User']
 
 
-class TGUser(models.Model):
+class TGMixin:
+    @property
+    def tg(self):
+        raise NotImplemented
+
+    def tgb(self, bot):
+        tg_obj = self.tg
+        tg_obj.bot = bot
+        return tg_obj
+
+
+class User(TGMixin, models.Model):
     """Telegram user or chat that hold information about original message sender."""
     id = CharField(unique=True, primary_key=True, help_text="Telegram user ID.")
     username = CharField(blank=True, null=True)
-    name = CharField()
-    is_chat = models.BooleanField(default=False)
+    first_name = CharField()
+    last_name = CharField(blank=True, null=True)
+
+    @property
+    def tg(self):
+        return TGUser(
+            id=self.id,
+            first_name=self.first_name,
+            last_name=self.last_name,
+            username=self.username,
+            is_bot=False,
+        )
 
     @property
     def url(self):
@@ -27,13 +49,30 @@ def default_allowed_types():
     return ['photo', 'video', 'animation', 'link', 'forward']
 
 
-class Chat(models.Model):
+class Chat(TGMixin, models.Model):
     id = CharField(unique=True, primary_key=True, help_text="Telegram chat ID.")
+    title = CharField(blank=True, null=True)
+    username = CharField(blank=True, null=True)
+    type = CharField()
     buttons = ArrayField(models.CharField(max_length=100), default=default_buttons)
     show_credits = models.BooleanField(default=True)
     add_padding = models.BooleanField(default=True)
     columns = models.IntegerField(default=4)
     allowed_types = ArrayField(models.CharField(max_length=100), default=default_allowed_types)
+
+    @property
+    def url(self):
+        if self.username:
+            return f'https://t.me/{self.username}'
+
+    @property
+    def tg(self):
+        return TGChat(
+            id=self.id,
+            type=self.type,
+            title=self.title,
+            username=self.username,
+        )
 
     def reactions(self):
         return [{
@@ -65,44 +104,80 @@ class MessageQuerySet(models.QuerySet):
         return msg
 
 
-class Message(models.Model):
+class Message(TGMixin, models.Model):
     id = CharField(
         unique=True,
         primary_key=True,
         help_text="Telegram message ID merged with chat ID.",
     )
+    date = models.DateTimeField()
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE)
     original_message_id = CharField(
         help_text="Telegram ID of original message w/o appended chat ID."
+    )
+    from_user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='messages',
+    )
+    forward_from = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        related_name='forward_messages',
+        blank=True,
+        null=True,
+    )
+    forward_from_chat = models.ForeignKey(
+        Chat,
+        on_delete=models.SET_NULL,
+        related_name='forward_messages',
+        blank=True,
+        null=True,
     )
     forward_from_message_id = CharField(
         blank=True,
         null=True,
         help_text="Telegram ID of original forwarded message w/o appended chat ID."
     )
-    from_user = models.ForeignKey(
-        TGUser,
-        on_delete=models.CASCADE,
-        related_name='messages',
-    )
-    from_forward = models.ForeignKey(
-        TGUser,
-        on_delete=models.SET_NULL,
-        related_name='forward_messages',
-        blank=True,
-        null=True,
-    )
 
     objects = MessageQuerySet.as_manager()
 
     @property
-    def from_url(self):
+    def tg(self):
+        return TGMessage(
+            message_id=self.id,
+            from_user=self.from_user.tg,
+            date=self.date,
+            chat=self.chat.tg,
+            forward_from=self.forward_from.tg,
+            forward_from_chat=self.forward_from_chat.tg,
+            forward_from_message_id=self.forward_from_message_id,
+        )
+
+    def tgb(self, bot):
+        obj = self.tg
+        obj.bot = bot
+        obj.chat.bot = bot
+        obj.from_user.bot = bot
+        if obj.forward_from:
+            obj.forward_from.bot = bot
+        if obj.forward_from_chat:
+            obj.forward_from_chat.bot = bot
+        return obj
+
+    @property
+    def from_user_url(self):
         return self.from_user.url
 
     @property
-    def from_forward_url(self):
-        if self.from_forward:
-            base_url = self.from_forward.url
+    def forward_user_url(self):
+        if self.forward_from:
+            return self.forward_from.url
+
+    @property
+    def forward_chat_url(self):
+        if self.forward_from_chat:
+            base_url = self.forward_from_chat.url
             if base_url:
                 return f'{base_url}/{self.forward_from_message_id}'
 
@@ -200,7 +275,7 @@ class ReactionManager(models.Manager):
 
 
 class Reaction(models.Model):
-    user = models.ForeignKey(TGUser, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
     message = models.ForeignKey(Message, on_delete=models.CASCADE)
     button = models.ForeignKey(Button, on_delete=models.CASCADE)
 

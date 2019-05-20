@@ -2,27 +2,39 @@ import logging
 
 from django.utils.datastructures import OrderedSet
 from telegram import ParseMode, Update
-from telegram.ext import CallbackContext
+from telegram.ext import CallbackContext, Filters
 
-from .utils import command, get_chat, admin_required
+from core.models import Chat
+from .utils import command, get_chat
 
 logger = logging.getLogger(__name__)
 
 
-@command('help')
+@command('help', pass_args=True)
 def command_help(update: Update, context: CallbackContext):
-    text = '\n'.join([
-        "This bot will automagically add reactions panel to your images/gifs/videos/links.",
-        "`/help` - print this message",
-        "`/set <button> [<button>...]` - set up buttons",
-        "`/get` - get list of default buttons for this chat",
-        "`/credits show|hide` - show how posted message message",
-        "`/padding add|remove` - add padding to buttons",
-        "`/columns <number>` - number of buttons in row [1, 10]",
-        "`/allowed` - show allowed for reposting message types",
-        "`/add_allowed <type> [<type>...]` - add allowed types",
-        "`/remove_allowed <type> [<type>...]` - remove allowed types",
-    ])
+    print_all = context.args and context.args[0] == 'all'
+    commands = [
+        "This bot can automagically add reactions panel to messages.",
+        "`/help` - print commands",
+        "`/help all` - print all commands",
+    ]
+    t = update.effective_chat.type
+    if print_all or t == 'private':
+        commands.extend([
+            "`/chats [update]` - show available chats",
+        ])
+    if print_all or 'group' in t:
+        commands.extend([
+            "`/set <button> [<button>...]` - set up buttons",
+            "`/get` - get list of default buttons for this chat",
+            "`/credits show|hide` - show how posted message message",
+            "`/padding add|remove` - add padding to buttons",
+            "`/columns <number>` - number of buttons in row [1, 10]",
+            "`/allowed` - show allowed for reposting message types",
+            "`/add_allowed <type> [<type>...]` - add allowed types",
+            "`/remove_allowed <type> [<type>...]` - remove allowed types",
+        ])
+    text = '\n'.join(commands)
     update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
 
@@ -33,8 +45,7 @@ def command_get_buttons(update: Update, context: CallbackContext):
     update.message.reply_text(f"Current default buttons: [{bs}]")
 
 
-@command('set', pass_args=True)
-@admin_required
+@command('set', pass_args=True, admin_required=True)
 def command_set_buttons(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) > 80:
@@ -47,8 +58,7 @@ def command_set_buttons(update: Update, context: CallbackContext):
     update.message.reply_text(f"New default buttons: [{bs}]")
 
 
-@command('credits', pass_args=True)
-@admin_required
+@command('credits', pass_args=True, admin_required=True)
 def command_credits(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) != 1:
@@ -68,8 +78,7 @@ def command_credits(update: Update, context: CallbackContext):
     update.message.reply_text(reply)
 
 
-@command('padding', pass_args=True)
-@admin_required
+@command('padding', pass_args=True, admin_required=True)
 def command_padding(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) != 1:
@@ -89,8 +98,7 @@ def command_padding(update: Update, context: CallbackContext):
     update.message.reply_text(reply)
 
 
-@command('columns', pass_args=True)
-@admin_required
+@command('columns', pass_args=True, admin_required=True)
 def command_columns(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) != 1 or not context.args[0].isdecimal():
@@ -112,8 +120,7 @@ def command_allowed(update: Update, context: CallbackContext):
     update.message.reply_text(f"Allowed types: {types_str}.")
 
 
-@command('add_allowed', pass_args=True)
-@admin_required
+@command('add_allowed', pass_args=True, admin_required=True)
 def command_add_allowed(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) < 1:
@@ -129,8 +136,7 @@ def command_add_allowed(update: Update, context: CallbackContext):
     update.message.reply_text(f"Allowed types: {types_str}.")
 
 
-@command('remove_allowed', pass_args=True)
-@admin_required
+@command('remove_allowed', pass_args=True, admin_required=True)
 def command_remove_allowed(update: Update, context: CallbackContext):
     chat = get_chat(update)
     if len(context.args) < 1:

@@ -6,3 +6,5 @@ coalesce_brackets = true
 split_before_dot = true
 split_before_expression_after_opening_paren = true
 split_complex_comprehension = true
+SPLIT_BEFORE_DICT_SET_GENERATOR = true
+SPLIT_PENALTY_COMPREHENSION = -10000

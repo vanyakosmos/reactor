@@ -29,22 +29,22 @@ def get_credits(update: Update):
 
 def get_credits_from_message(message: Message):
     data = {
-        'from_name': message.from_user.name,
+        'from_name': message.from_user.tg.full_name,
         'from_username': message.from_user.username,
     }
-    ff = message.from_forward
+    ff = message.forward_from
     if ff:
-        if not ff.is_chat:
-            data.update({
-                'forward_name': ff.name,
-                'forward_username': ff.username,
-            })
-        else:
-            data.update({
-                'forward_chat_name': ff.name,
-                'forward_chat_username': ff.username,
-                'forward_chat_message_id': message.forward_from_message_id,
-            })
+        data.update({
+            'forward_name': ff.tg.full_name,
+            'forward_username': ff.username,
+        })
+    ffc = message.forward_from_chat
+    if ffc:
+        data.update({
+            'forward_chat_name': ffc.title,
+            'forward_chat_username': ffc.username,
+            'forward_chat_message_id': message.forward_from_message_id,
+        })
     return data
 
 
@@ -95,7 +95,6 @@ def make_credits_buttons(
 
 
 def make_reply_markup(
-    context: CallbackContext,
     rates: list,
     padding=False,
     max_cols=5,
@@ -105,7 +104,7 @@ def make_reply_markup(
     for rate in rates:
         text = rate['text']
         count = rate['count']
-        payload = rate['text']
+        payload = f"button:{text}"
         if count:
             text = f'{text} {count}'
         keys.append(InlineKeyboardButton(text, callback_data=payload))
@@ -117,7 +116,7 @@ def make_reply_markup(
         line = keys[:max_cols]
         if padding and len(line) != max_cols:
             line += [
-                InlineKeyboardButton('+', url=f'https://t.me/{context.bot.username}')
+                InlineKeyboardButton('.', callback_data='~')
                 for _ in range(max_cols - len(line))
             ]
         keyboard += [line]
@@ -139,7 +138,6 @@ def make_reply_markup_from_chat(update, context, reactions=None, chat=None, mess
     else:
         credits = None
     reply_markup = make_reply_markup(
-        context,
         reactions,
         credits=credits,
         padding=chat.add_padding,

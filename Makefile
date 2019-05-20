@@ -8,5 +8,8 @@ hardmig:
 	./backend/manage.py makemigrations
 	./backend/manage.py migrate
 
-rbot:
+start:
+	docker-compose up bot db
+
+restart_bot:
 	docker-compose restart bot
