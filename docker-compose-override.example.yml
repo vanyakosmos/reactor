@@ -1,4 +1,11 @@
-version: '3'
+version: "3.7"
+
+x-app: &app
+  env_file:
+    - .envs/.local/app.env
+    - .envs/.local/postgres.env
+  volumes:
+    - ./backend:/app
 
 services:
   db:
@@ -12,18 +19,10 @@ services:
       - 6379:6379
 
   app:
+    <<: *app
     command: ["./scripts/run.sh", "dev"]
-    env_file:
-      - .envs/.local/app.env
-      - .envs/.local/postgres.env
-    volumes:
-      - ./backend:/app
     ports:
       - 8000:8000
 
   bot:
-    env_file:
-      - .envs/.local/app.env
-      - .envs/.local/postgres.env
-    volumes:
-      - ./backend:/app
+    <<: *app

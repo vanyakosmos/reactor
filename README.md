@@ -17,8 +17,12 @@ Telegram bot that automatically add reaction buttons to messages (similar to sla
   - [x] buttons padding
   - [x] hide/show credits
   - [ ] reply the original message instead of reposting it
-- [ ] allow to change group chat settings from private chat
-- [ ] reactions for channels with posting from private chat
+  - [ ] allow to disable custom reactions
+  - [ ] regulate button size (max string length)
+  - [ ] add emoji enforcing
+- [ ] add forced processing/ignoring of message (using message prefix or specified command)
+- [x] reactions for channels via inline interface
+- [ ] add setting for inline posting
 - [ ] add web UI for chat administration and statistics
 
 #### misc:
