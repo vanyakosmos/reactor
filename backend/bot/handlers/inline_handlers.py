@@ -3,6 +3,9 @@ from uuid import uuid4
 
 from telegram import (
     InlineQueryResultArticle,
+    InlineQueryResultCachedPhoto,
+    InlineQueryResultCachedMpeg4Gif,
+    InlineQueryResultCachedVideo,
     InputTextMessageContent,
     ParseMode,
     Update,
@@ -13,7 +16,7 @@ from telegram.ext import CallbackContext
 from bot import redis
 from core.models import Message
 from .markup import make_reply_markup, make_reply_markup_from_chat
-from .utils import chosen_inline_handler, get_user, inline_query_handler
+from .utils import chosen_inline_handler, get_user, inline_query_handler, get_message_type
 from .filters import creation_filter
 
 logger = logging.getLogger(__name__)
@@ -40,20 +43,36 @@ def handle_publishing_options(update: Update, context: CallbackContext):
 
     reply_markup = make_reply_markup(context.bot, get_reactions(buttons))
 
-    # todo: setup proper type for QueryResult
-    content = msg.text_markdown or msg.caption_markdown
-    results = [
-        InlineQueryResultArticle(
-            id=str(uuid4()),
-            title="Message to publish",
+    msg_type = get_message_type(msg)
+    config = {
+        'id': str(uuid4()),
+        'title': "Message to publish",
+        'text': msg.text_markdown,
+        'caption': msg.caption_markdown,
+        'parse_mode': ParseMode.MARKDOWN,
+        'reply_markup': reply_markup,
+        # types
+        'photo_file_id': msg.photo[0].file_id,
+        'video_file_id': msg.video.file_id,
+        'mpeg4_file_id': msg.animation.file_id,
+    }
+    if msg_type == 'photo':
+        qr = InlineQueryResultCachedPhoto(**config)
+    elif msg_type == 'video':
+        qr = InlineQueryResultCachedVideo(**config)
+    elif msg_type == 'animation':
+        qr = InlineQueryResultCachedMpeg4Gif(**config)
+    elif msg_type in ('text', 'link'):
+        qr = InlineQueryResultArticle(
             input_message_content=InputTextMessageContent(
-                content,
+                msg.text_markdown,
                 parse_mode=ParseMode.MARKDOWN,
             ),
-            reply_markup=reply_markup,
+            **config,
         )
-    ]
-    update.inline_query.answer(results, cache_time=0, is_personal=True)
+    else:
+        return
+    update.inline_query.answer([qr], cache_time=0, is_personal=True)
 
 
 @chosen_inline_handler()

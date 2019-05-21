@@ -34,23 +34,23 @@ def process_message(update: Update, context: CallbackContext, msg_type: str, cha
 
     config = {
         'chat_id': msg.chat_id,
+        'text': msg.text_html,
+        'caption': msg.caption_html,
         'disable_notification': True,
         'parse_mode': 'HTML',
         'reply_markup': reply_markup,
+        # files
+        'photo': msg.photo[0].file_id,
+        'video': msg.video.file_id,
+        'animation': msg.animation.file_id,
     }
-    if msg_type in ('photo', 'video', 'animation'):
-        config['caption'] = msg.caption_html
     if msg_type == 'photo':
-        config['photo'] = msg.photo[0].file_id
         sent_msg = bot.send_photo(**config)
     elif msg_type == 'video':
-        config['video'] = msg.video.file_id
         sent_msg = bot.send_video(**config)
     elif msg_type == 'animation':
-        config['animation'] = msg.animation.file_id
         sent_msg = bot.send_animation(**config)
     elif msg_type == 'text':
-        config['text'] = msg.text_html
         sent_msg = bot.send_message(**config)
     elif msg_type == 'album':
         config.pop('chat_id')
@@ -133,6 +133,7 @@ def handle_reaction_response(update: Update, context: CallbackContext):
 def handle_create(update: Update, context: CallbackContext):
     user: TGUser = update.effective_user
     msg: TGMessage = update.effective_message
+    # todo: ask user for buttons and other settings
     redis.save_creation(user.id, msg.to_dict(), ['👍', '👎'])
     msg.reply_text(
         "Press 'publish' and choose your channel. Publishing will be available for 1 hour.",
