@@ -1,5 +1,6 @@
 from django.contrib.postgres.fields import ArrayField
 from django.db import models
+from django.utils import timezone
 from telegram import Chat as TGChat, Message as TGMessage, User as TGUser
 
 from .fields import CharField
@@ -86,17 +87,34 @@ class Chat(TGMixin, models.Model):
 
 
 class MessageQuerySet(models.QuerySet):
-    def get_by_ids(self, chat_id, message_id):
-        umid = Message.get_id(chat_id, message_id)
+    def get_by_ids(self, chat_id, message_id, inline_message_id=None):
+        umid = Message.get_id(chat_id, message_id, inline_message_id)
         return Message.objects.get(id=umid)
 
-    def create(self, chat_id, message_id, **kwargs):
+    def create_from_inline(self, inline_message_id, buttons, **kwargs):
+        """
+        Create message based on inline_message_id.
+        Populate buttons.
+        """
+        msg = self.create(
+            id=inline_message_id,
+            date=timezone.now(),
+            inline_message_id=inline_message_id,
+            **kwargs,
+        )
+        Button.objects.bulk_create([
+            Button(message=msg, index=index, text=text, permanent=True)
+            for index, text in enumerate(buttons)
+        ])
+        return msg
+
+    def create_from_tg_ids(self, chat_id, message_id, **kwargs):
         """
         Create message based on chat ID and original telegram message ID.
         Populate buttons.
         """
         umid = Message.get_id(chat_id, message_id)
-        msg = super().create(id=umid, chat_id=chat_id, **kwargs)
+        msg = self.create(id=umid, chat_id=chat_id, **kwargs)
         Button.objects.bulk_create([
             Button(message=msg, index=index, text=text, permanent=True)
             for index, text in enumerate(msg.chat.buttons)
@@ -111,9 +129,14 @@ class Message(TGMixin, models.Model):
         help_text="Telegram message ID merged with chat ID.",
     )
     date = models.DateTimeField()
-    chat = models.ForeignKey(Chat, on_delete=models.CASCADE)
+    chat = models.ForeignKey(Chat, on_delete=models.CASCADE, null=True)
     original_message_id = CharField(
-        help_text="Telegram ID of original message w/o appended chat ID."
+        blank=True, null=True, help_text="Telegram ID of original message w/o appended chat ID."
+    )
+    inline_message_id = CharField(
+        blank=True,
+        null=True,
+        help_text="Telegram ID of inline message.",
     )
     from_user = models.ForeignKey(
         User,
@@ -142,22 +165,52 @@ class Message(TGMixin, models.Model):
 
     objects = MessageQuerySet.as_manager()
 
+    @classmethod
+    def get_id(cls, chat_id, message_id, inline_message_id=None):
+        """merge chat_id and message_id to create globally unique Message ID"""
+        if inline_message_id:
+            return inline_message_id
+        if message_id is None:
+            return chat_id
+        if isinstance(message_id, str) and '_' in message_id:
+            return message_id
+        return f'{chat_id}_{message_id}'
+
+    @classmethod
+    def split_id(cls, umid: str):
+        return umid.split('_')
+
+    @property
+    def ids(self):
+        return {
+            'chat_id': self.chat_id,
+            'message_id': self.message_id,
+            'inline_message_id': self.inline_message_id,
+        }
+
+    @property
+    def message_id(self):
+        parts = self.id.split('_')
+        if len(parts) == 2:
+            return parts[1]
+
     @property
     def tg(self):
         return TGMessage(
             message_id=self.id,
             from_user=self.from_user.tg,
             date=self.date,
-            chat=self.chat.tg,
-            forward_from=self.forward_from.tg,
-            forward_from_chat=self.forward_from_chat.tg,
+            chat=self.chat and self.chat.tg,
+            forward_from=self.forward_from and self.forward_from.tg,
+            forward_from_chat=self.forward_from_chat and self.forward_from_chat.tg,
             forward_from_message_id=self.forward_from_message_id,
         )
 
     def tgb(self, bot):
         obj = self.tg
         obj.bot = bot
-        obj.chat.bot = bot
+        if obj.chat:
+            obj.chat.bot = bot
         obj.from_user.bot = bot
         if obj.forward_from:
             obj.forward_from.bot = bot
@@ -181,29 +234,31 @@ class Message(TGMixin, models.Model):
             if base_url:
                 return f'{base_url}/{self.forward_from_message_id}'
 
-    @classmethod
-    def get_id(cls, chat_id, message_id):
-        """merge chat_id and message_id to create globally unique Message ID"""
-        if isinstance(message_id, str) and '~' in message_id:
-            return message_id
-        return f'{chat_id}~{message_id}'
-
     def __str__(self):
         return f"Message({self.id})"
 
 
 class ButtonManager(models.Manager):
-    def filter_by_message(self, chat_id, message_id):
-        umid = Message.get_id(chat_id, message_id)
+    def filter_by_message(self, chat_id, message_id, inline_message_id=None):
+        umid = Message.get_id(chat_id, message_id, inline_message_id)
         return self.filter(message_id=umid)
 
-    def reactions(self, chat_id, message_id):
+    def create_for_reaction(self, reaction, chat_id, message_id, inline_message_id=None):
+        umid = Message.get_id(chat_id, message_id, inline_message_id)
+        try:
+            Button.objects.get(message_id=umid, text=reaction)
+        except Button.DoesNotExist:
+            b = self.filter(message_id=umid).last()
+            index = b.index + 1 if b else 0
+            Button.objects.create(message_id=umid, text=reaction, index=index)
+
+    def reactions(self, chat_id, message_id, inline_message_id=None):
         return [{
             'id': b.id,
             'index': b.index,
             'text': b.text,
             'count': b.count,
-        } for b in self.filter_by_message(chat_id, message_id)]
+        } for b in self.filter_by_message(chat_id, message_id, inline_message_id)]
 
 
 class Button(models.Model):
@@ -235,7 +290,7 @@ class Button(models.Model):
 
 
 class ReactionManager(models.Manager):
-    def react(self, user_id, chat_id, message_id, button_text):
+    def react(self, user_id, chat_id, message_id, inline_message_id, button_text):
         """
         Add user reaction to the message.
         If reaction is the same - remove old reaction.
@@ -243,12 +298,12 @@ class ReactionManager(models.Manager):
 
         Message-Button consistency should be guarantied by Telegram API.
         """
-        univ_message_id = Message.get_id(chat_id, message_id)
-        button = Button.objects.get(message__id=univ_message_id, text=button_text)
+        umid = Message.get_id(chat_id, message_id, inline_message_id)
+        button = Button.objects.get(message__id=umid, text=button_text)
         try:
             r = Reaction.objects.get(
                 user_id=user_id,
-                message_id=univ_message_id,
+                message_id=umid,
             )
             # user already reacted...
             # clicked same button -> remove reaction
@@ -267,7 +322,7 @@ class ReactionManager(models.Manager):
             # user reacting first time
             r = Reaction.objects.create(
                 user_id=user_id,
-                message_id=univ_message_id,
+                message_id=umid,
                 button=button,
             )
             button.inc()

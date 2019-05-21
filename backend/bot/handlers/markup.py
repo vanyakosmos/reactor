@@ -1,5 +1,4 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import CallbackContext
 
 from core.models import Chat, Message
 
@@ -94,11 +93,20 @@ def make_credits_buttons(
     return buttons
 
 
+def make_vote_button(bot, inline_message_id):
+    return InlineKeyboardButton(
+        text="vote",
+        url=f'https://t.me/{bot.username}?start={inline_message_id}',
+    )
+
+
 def make_reply_markup(
+    bot,
     rates: list,
     padding=False,
     max_cols=5,
     credits=None,
+    vote_payload=None,
 ):
     keys = []
     for rate in rates:
@@ -110,6 +118,8 @@ def make_reply_markup(
         keys.append(InlineKeyboardButton(text, callback_data=payload))
 
     keyboard = []
+    if vote_payload:
+        keyboard.append([make_vote_button(bot, vote_payload)])
     if credits:
         keyboard.append(make_credits_buttons(**credits))
     while keys:
@@ -127,9 +137,22 @@ def make_reply_markup(
 
 def make_reply_markup_from_chat(update, context, reactions=None, chat=None, message=None):
     if not chat:
-        chat, _ = Chat.objects.get_or_create(id=update.effective_message.chat_id)
+        if message:
+            chat = message.chat
+        else:
+            chat, _ = Chat.objects.get_or_create(id=update.effective_message.chat_id)
     if not reactions:
         reactions = chat.reactions()
+
+    # message doesn't have chat and it wasn't provided as arg
+    if not chat:
+        reply_markup = make_reply_markup(
+            context.bot,
+            reactions,
+            vote_payload=message and message.inline_message_id,
+        )
+        return None, reply_markup
+
     if chat.show_credits:
         if message:
             credits = get_credits_from_message(message)
@@ -138,9 +161,11 @@ def make_reply_markup_from_chat(update, context, reactions=None, chat=None, mess
     else:
         credits = None
     reply_markup = make_reply_markup(
+        context.bot,
         reactions,
         credits=credits,
         padding=chat.add_padding,
         max_cols=chat.columns,
+        vote_payload=message and message.inline_message_id,
     )
     return chat, reply_markup

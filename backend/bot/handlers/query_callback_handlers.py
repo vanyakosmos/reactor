@@ -26,20 +26,30 @@ def handle_button_callback(update: Update, context: CallbackContext):
     query = update.callback_query
     text = context.match[1]
 
+    mids = dict(
+        chat_id=msg and msg.chat_id,
+        message_id=msg and msg.message_id,
+        inline_message_id=query.inline_message_id,
+    )
+    try:
+        message = Message.objects.prefetch_related().get_by_ids(**mids)
+    except Message.DoesNotExist:
+        logger.debug(f"Message {mids} doesn't exist.")
+        return
+
     reaction, button = Reaction.objects.react(
         user_id=user.id,
-        chat_id=msg.chat_id,
-        message_id=msg.message_id,
         button_text=text,
+        **mids,
     )
     reply_to_reaction(context.bot, query, button, reaction)
-    reactions = Button.objects.reactions(msg.chat_id, msg.message_id)
-    message = Message.objects.prefetch_related().get_by_ids(msg.chat_id, msg.message_id)
+    reactions = Button.objects.reactions(**mids)
+
     _, reply_markup = make_reply_markup_from_chat(update, context, reactions, message=message)
-    msg.edit_reply_markup(reply_markup=reply_markup)
+    context.bot.edit_message_reply_markup(reply_markup=reply_markup, **mids)
 
 
-@callback_query_handler(pattern=r"~")
+@callback_query_handler(pattern="~")
 @run_async
 def handle_empty_callback(update: Update, context: CallbackContext):
-    update.callback_query.answer()
+    update.callback_query.answer(cache_time=10)

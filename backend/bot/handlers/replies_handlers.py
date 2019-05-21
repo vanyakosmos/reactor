@@ -11,21 +11,21 @@ logger = logging.getLogger(__name__)
 
 
 @message_handler(Filters.reply & Filters.text & Filters.regex(r'\+(.+)'))
-def handle_reply(update: Update, context: CallbackContext):
+def handle_reaction_reply(update: Update, context: CallbackContext):
     user = update.effective_user
     msg = update.effective_message
     reaction = context.match[1]
     try_delete(context.bot, update, msg)
 
     reply = msg.reply_to_message
-    umid = Message.get_id(reply.chat_id, reply.message_id)
-    try:
-        Button.objects.get(message_id=umid, text=reaction)
-    except Button.DoesNotExist:
-        b = Button.objects.filter_by_message(reply.chat_id, reply.message_id).last()
-        index = b.index + 1 if b else 0
-        Button.objects.create(message_id=umid, text=reaction, index=index)
 
+    try:
+        message = Message.objects.prefetch_related().get_by_ids(reply.chat_id, reply.message_id)
+    except Message.DoesNotExist:
+        logger.debug(f"Message doesn't exist.")
+        return
+
+    Button.objects.create_for_reaction(reaction, reply.chat_id, reply.message_id)
     Reaction.objects.react(
         user_id=user.id,
         chat_id=reply.chat_id,
@@ -33,6 +33,5 @@ def handle_reply(update: Update, context: CallbackContext):
         button_text=reaction,
     )
     reactions = Button.objects.reactions(reply.chat_id, reply.message_id)
-    message = Message.objects.prefetch_related().get_by_ids(reply.chat_id, reply.message_id)
     _, reply_markup = make_reply_markup_from_chat(update, context, reactions, message=message)
     reply.edit_reply_markup(reply_markup=reply_markup)

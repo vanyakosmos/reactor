@@ -1,10 +1,10 @@
 import logging
 
 from django.utils.datastructures import OrderedSet
-from telegram import ParseMode, Update
+from telegram import Message as TGMessage, ParseMode, Update, User as TGUser
 from telegram.ext import CallbackContext, Filters
 
-from core.models import Chat
+from bot import redis
 from .utils import command, get_chat
 
 logger = logging.getLogger(__name__)
@@ -149,3 +149,21 @@ def command_remove_allowed(update: Update, context: CallbackContext):
     chat.save()
     types_str = ', '.join(sorted(types))
     update.message.reply_text(f"Allowed types: {types_str}.")
+
+
+@command('start', pass_args=True, filters=Filters.private)
+def command_start(update: Update, context: CallbackContext):
+    if not context.args:
+        return
+    user: TGUser = update.effective_user
+    msg: TGMessage = update.effective_message
+    msg.reply_text('Now send me your reaction.')
+    redis.await_reaction(user.id, context.args[0])
+
+
+@command('create', filters=Filters.private)
+def command_create(update: Update, context: CallbackContext):
+    user: TGUser = update.effective_user
+    msg: TGMessage = update.effective_message
+    msg.reply_text('Now send me your message to which you want me to add reactions panel.')
+    redis.await_create(user.id)
