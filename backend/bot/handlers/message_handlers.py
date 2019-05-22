@@ -40,9 +40,9 @@ def process_message(update: Update, context: CallbackContext, msg_type: str, cha
         'parse_mode': 'HTML',
         'reply_markup': reply_markup,
         # files
-        'photo': msg.photo[0].file_id,
-        'video': msg.video.file_id,
-        'animation': msg.animation.file_id,
+        'photo': msg.photo and msg.photo[0].file_id,
+        'video': msg.video and msg.video.file_id,
+        'animation': msg.animation and msg.animation.file_id,
     }
     if msg_type == 'photo':
         sent_msg = bot.send_photo(**config)
@@ -112,10 +112,8 @@ def handle_reaction_response(update: Update, context: CallbackContext):
         return
 
     mids = message.ids
-
-    Button.objects.create_for_reaction(reaction, **mids)
     Reaction.objects.react(
-        user_id=user.id,
+        user=user,
         button_text=reaction,
         **mids,
     )

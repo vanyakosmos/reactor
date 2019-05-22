@@ -38,7 +38,7 @@ def handle_button_callback(update: Update, context: CallbackContext):
         return
 
     reaction, button = Reaction.objects.react(
-        user_id=user.id,
+        user=user,
         button_text=text,
         **mids,
     )

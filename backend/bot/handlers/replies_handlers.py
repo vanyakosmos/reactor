@@ -25,11 +25,11 @@ def handle_reaction_reply(update: Update, context: CallbackContext):
         logger.debug(f"Message doesn't exist.")
         return
 
-    Button.objects.create_for_reaction(reaction, reply.chat_id, reply.message_id)
     Reaction.objects.react(
-        user_id=user.id,
+        user=user,
         chat_id=reply.chat_id,
         message_id=reply.message_id,
+        inline_message_id=None,
         button_text=reaction,
     )
     reactions = Button.objects.reactions(reply.chat_id, reply.message_id)

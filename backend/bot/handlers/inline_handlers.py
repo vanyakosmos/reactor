@@ -52,9 +52,9 @@ def handle_publishing_options(update: Update, context: CallbackContext):
         'parse_mode': ParseMode.MARKDOWN,
         'reply_markup': reply_markup,
         # types
-        'photo_file_id': msg.photo[0].file_id,
-        'video_file_id': msg.video.file_id,
-        'mpeg4_file_id': msg.animation.file_id,
+        'photo_file_id': msg.photo and msg.photo[0].file_id,
+        'video_file_id': msg.video and msg.video.file_id,
+        'mpeg4_file_id': msg.animation and msg.animation.file_id,
     }
     if msg_type == 'photo':
         qr = InlineQueryResultCachedPhoto(**config)

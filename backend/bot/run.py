@@ -26,6 +26,12 @@ def extract_by_pattern(pattern, data_holder):
     return res
 
 
+def inspect_handlers(handlers: list):
+    print('Handlers:')
+    print('\n'.join([f"  > {handler.__name__:30s} < {handler.__module__}" for handler in handlers]))
+    print()
+
+
 def run():
     updater = Updater(settings.TG_BOT_TOKEN, use_context=True)
     dp = updater.dispatcher
@@ -33,11 +39,12 @@ def run():
     handlers = [
         *extract_by_pattern(r'command_(.+)', commands),
         *extract_by_pattern(r'handle_(.+)', query_callback_handlers),
-        *extract_by_pattern(r'handle_(.+)', message_handlers),
         *extract_by_pattern(r'handle_(.+)', replies_handlers),
+        *extract_by_pattern(r'handle_(.+)', message_handlers),
         *extract_by_pattern(r'handle_(.+)', inline_handlers),
         handle_new_member,
     ]
+    inspect_handlers(handlers)
     for handler in handlers:
         if hasattr(handler, 'handler'):
             handler = getattr(handler, 'handler')

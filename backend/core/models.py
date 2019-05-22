@@ -1,5 +1,5 @@
 from django.contrib.postgres.fields import ArrayField
-from django.db import models
+from django.db import models, IntegrityError
 from django.utils import timezone
 from telegram import Chat as TGChat, Message as TGMessage, User as TGUser
 
@@ -19,12 +19,27 @@ class TGMixin:
         return tg_obj
 
 
+class UserManager(models.Manager):
+    def create_from_tg_user(self, u: TGUser):
+        user, _ = User.objects.update_or_create(
+            id=u.id,
+            defaults={
+                'username': u.username,
+                'first_name': u.first_name,
+                'last_name': u.last_name,
+            },
+        )
+        return user
+
+
 class User(TGMixin, models.Model):
     """Telegram user or chat that hold information about original message sender."""
     id = CharField(unique=True, primary_key=True, help_text="Telegram user ID.")
     username = CharField(blank=True, null=True)
     first_name = CharField()
     last_name = CharField(blank=True, null=True)
+
+    objects = UserManager()
 
     @property
     def tg(self):
@@ -243,14 +258,13 @@ class ButtonManager(models.Manager):
         umid = Message.get_id(chat_id, message_id, inline_message_id)
         return self.filter(message_id=umid)
 
-    def create_for_reaction(self, reaction, chat_id, message_id, inline_message_id=None):
-        umid = Message.get_id(chat_id, message_id, inline_message_id)
+    def get_for_reaction(self, reaction, umid):
         try:
-            Button.objects.get(message_id=umid, text=reaction)
+            return Button.objects.get(message_id=umid, text=reaction)
         except Button.DoesNotExist:
             b = self.filter(message_id=umid).last()
             index = b.index + 1 if b else 0
-            Button.objects.create(message_id=umid, text=reaction, index=index)
+            return Button.objects.create(message_id=umid, text=reaction, index=index)
 
     def reactions(self, chat_id, message_id, inline_message_id=None):
         return [{
@@ -290,7 +304,20 @@ class Button(models.Model):
 
 
 class ReactionManager(models.Manager):
-    def react(self, user_id, chat_id, message_id, inline_message_id, button_text):
+    def safe_create(self, user, umid, button, ran=False):
+        try:
+            return Reaction.objects.create(
+                user_id=user.id,
+                message_id=umid,
+                button=button,
+            )
+        except IntegrityError:
+            User.objects.create_from_tg_user(user)
+            if not ran:
+                return self.safe_create(user, umid, button, ran=True)
+            raise
+
+    def react(self, user: TGUser, chat_id, message_id, inline_message_id, button_text):
         """
         Add user reaction to the message.
         If reaction is the same - remove old reaction.
@@ -299,10 +326,10 @@ class ReactionManager(models.Manager):
         Message-Button consistency should be guarantied by Telegram API.
         """
         umid = Message.get_id(chat_id, message_id, inline_message_id)
-        button = Button.objects.get(message__id=umid, text=button_text)
+        button = Button.objects.get_for_reaction(button_text, umid)
         try:
             r = Reaction.objects.get(
-                user_id=user_id,
+                user_id=user.id,
                 message_id=umid,
             )
             # user already reacted...
@@ -320,11 +347,7 @@ class ReactionManager(models.Manager):
                 r.save()
         except Reaction.DoesNotExist:
             # user reacting first time
-            r = Reaction.objects.create(
-                user_id=user_id,
-                message_id=umid,
-                button=button,
-            )
+            r = self.safe_create(user, umid, button)
             button.inc()
         return r, button
 
