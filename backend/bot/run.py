@@ -27,9 +27,12 @@ def extract_by_pattern(pattern, data_holder):
 
 
 def inspect_handlers(handlers: list):
-    print('Handlers:')
-    print('\n'.join([f"  > {handler.__name__:30s} < {handler.__module__}" for handler in handlers]))
-    print()
+    text = 'Handlers:\n'
+    text += '\n'.join([
+        f"  > {i + 1:2d}. {handler.__name__:30s} < {handler.__module__}"
+        for i, handler in enumerate(handlers)
+    ])
+    logger.debug(text)
 
 
 def run():
@@ -54,3 +57,4 @@ def run():
     logger.info('start polling...')
     updater.start_polling()
     updater.idle()
+    logger.info('bye')

@@ -1,4 +1,5 @@
 import functools
+import logging
 
 from telegram import Update, Message as TGMessage, Chat as TGChat, User as TGUser
 from telegram.ext import (
@@ -23,6 +24,9 @@ def handler_decorator_factory(handler_class):
         def wrapper(f):
             @functools.wraps(f)
             def dec(update, context):
+                logger = logging.getLogger(dec.__module__)
+                logger.debug(f"☎️  CALLING: {dec.__name__:30s}")
+                logger.debug(f"📑\n{update}")
                 if admin_required:
                     if user_is_admin(context.bot, update):
                         return f(update, context)

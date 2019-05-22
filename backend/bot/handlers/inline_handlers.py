@@ -32,8 +32,6 @@ def get_reactions(buttons):
 
 @inline_query_handler(pattern='publish')
 def handle_publishing_options(update: Update, context: CallbackContext):
-    logger.debug('INLINE QUERY')
-    logger.debug(update)
     user: TGUser = update.effective_user
 
     if not creation_filter.filter_by_user(update.effective_user):
@@ -77,9 +75,6 @@ def handle_publishing_options(update: Update, context: CallbackContext):
 
 @chosen_inline_handler()
 def handle_publishing(update: Update, context: CallbackContext):
-    logger.debug('CHOSEN INLINE QUERY')
-    logger.debug(update)
-
     res = update.chosen_inline_result
     if res.query != 'publish':
         return
