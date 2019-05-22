@@ -10,7 +10,8 @@ logger = logging.getLogger(__name__)
 
 
 def handle_error(update: Update, context: CallbackContext):
-    logger.warning(f"🔥 Update {update}\n   caused error: {context.error}")
+    logger.error(f"📑\n{update}")
+    logger.exception(context.error)
 
 
 @message_handler(Filters.status_update.new_chat_members)

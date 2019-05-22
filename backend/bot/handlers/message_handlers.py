@@ -1,5 +1,6 @@
 import logging
 
+from django.utils import timezone
 from telegram import (
     Update,
     Message as TGMessage,
@@ -65,14 +66,13 @@ def process_message(update: Update, context: CallbackContext, msg_type: str, cha
         Message.objects.create_from_tg_ids(
             sent_msg.chat_id,
             sent_msg.message_id,
-            date=msg.date,
+            date=timezone.make_aware(msg.date),
             original_message_id=msg.message_id,
             from_user=get_user(update),
             forward_from=get_forward_from(msg),
             forward_from_chat=get_forward_from_chat(msg),
             forward_from_message_id=msg.forward_from_message_id,
         )
-        # todo: edit with vote button if channel
 
 
 @message_handler(
@@ -103,8 +103,6 @@ def handle_reaction_response(update: Update, context: CallbackContext):
     # todo: validate reaction
 
     some_message_id = redis.awaited_reaction(user.id).decode()
-    logger.debug(update)
-    logger.debug(some_message_id)
     try:
         message = Message.objects.prefetch_related().get(id=some_message_id)
     except Message.DoesNotExist:
@@ -134,7 +132,8 @@ def handle_create(update: Update, context: CallbackContext):
     # todo: ask user for buttons and other settings
     redis.save_creation(user.id, msg.to_dict(), ['👍', '👎'])
     msg.reply_text(
-        "Press 'publish' and choose your channel. Publishing will be available for 1 hour.",
+        "Press 'publish' and choose your channel.\n"
+        "Publishing will be available for 1 hour.",
         reply_markup=InlineKeyboardMarkup.from_button(
             InlineKeyboardButton(
                 "publish",

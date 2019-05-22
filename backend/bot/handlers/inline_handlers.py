@@ -11,6 +11,7 @@ from telegram import (
     Update,
     User as TGUser,
 )
+from telegram.error import BadRequest
 from telegram.ext import CallbackContext
 
 from bot import redis
@@ -96,7 +97,10 @@ def handle_publishing(update: Update, context: CallbackContext):
         get_reactions(buttons),
         message=message,
     )
-    context.bot.edit_message_reply_markup(
-        reply_markup=reply_markup,
-        inline_message_id=inline_id,
-    )
+    try:
+        context.bot.edit_message_reply_markup(
+            reply_markup=reply_markup,
+            inline_message_id=inline_id,
+        )
+    except BadRequest:  # message was deleted too fast (probably by the same bot in chat)
+        message.delete()
