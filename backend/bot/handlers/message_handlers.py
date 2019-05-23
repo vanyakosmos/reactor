@@ -75,13 +75,54 @@ def process_message(update: Update, context: CallbackContext, msg_type: str, cha
         )
 
 
+def check_force_skip(msg: TGMessage):
+    """
+    Returns:
+        True if should message should be skipped.
+    """
+    text: str = msg.text or msg.caption
+    if text and text.startswith('--'):
+        return True
+
+
+def check_force_repost(msg: TGMessage):
+    """
+    Check if reposting should be forced. If so - patch message and remove "++" (force mark).
+
+    Returns:
+        None - skip reposting, bool - forced/unforced reposting.
+    """
+    text: str = msg.text or msg.caption
+    force = bool(text and text.startswith('++'))
+    if force:
+        if msg.text and len(msg.text) > 2:
+            msg.text = msg.text[2:]
+        elif msg.text:
+            # can't repost message without text
+            return
+        if msg.caption and len(msg.caption) > 2:
+            msg.caption = msg.caption[2:]
+        else:
+            msg.caption = None
+    return force
+
+
+def check_force(msg: TGMessage):
+    if check_force_skip(msg):
+        return
+    return check_force_repost(msg)
+
+
 @message_handler(
-    Filters.group &
-    (Filters.photo | Filters.video | Filters.animation | Filters.forwarded | Filters.text) &
-    ~Filters.status_update.left_chat_member
+    Filters.group & ~Filters.reply & ~Filters.status_update.left_chat_member &
+    (Filters.photo | Filters.video | Filters.animation | Filters.forwarded | Filters.text)
 )
 def handle_message(update: Update, context: CallbackContext):
-    msg = update.effective_message
+    msg: TGMessage = update.effective_message
+
+    force = check_force(msg)
+    if force is None:
+        return
 
     chat = get_chat_from_tg_chat(update.effective_chat)
     allowed_types = chat.allowed_types
@@ -90,7 +131,7 @@ def handle_message(update: Update, context: CallbackContext):
     msg_type = get_message_type(msg)
     forward = bool(msg.forward_date)
 
-    if msg_type in allowed_types or forward and allow_forward:
+    if force or msg_type in allowed_types or forward and allow_forward:
         process_message(update, context, msg_type, chat)
 
 
