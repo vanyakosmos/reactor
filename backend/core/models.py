@@ -72,9 +72,11 @@ class Chat(TGMixin, models.Model):
     type = CharField()
     buttons = ArrayField(models.CharField(max_length=100), default=default_buttons)
     show_credits = models.BooleanField(default=True)
-    add_padding = models.BooleanField(default=True)
+    add_padding = models.BooleanField(default=False)
     columns = models.IntegerField(default=4)
     allowed_types = ArrayField(models.CharField(max_length=100), default=default_allowed_types)
+    allow_reactions = models.BooleanField(default=True)
+    force_emojis = models.BooleanField(default=False)
 
     @property
     def url(self):
