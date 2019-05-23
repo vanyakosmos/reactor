@@ -122,16 +122,17 @@ def make_reply_markup(
         keyboard.append([make_vote_button(bot, vote_payload)])
     if credits:
         keyboard.append(make_credits_buttons(**credits))
+    buttons = []
     while keys:
         line = keys[:max_cols]
-        if padding and len(line) != max_cols:
+        if padding and len(line) != max_cols and len(buttons) >= 1:
             line += [
                 InlineKeyboardButton('.', callback_data='~')
                 for _ in range(max_cols - len(line))
             ]
-        keyboard += [line]
+        buttons.append(line)
         keys = keys[max_cols:]
-
+    keyboard.extend(buttons)
     return InlineKeyboardMarkup(keyboard)
 
 

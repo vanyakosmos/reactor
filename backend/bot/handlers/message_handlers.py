@@ -143,7 +143,7 @@ def handle_reaction_response(update: Update, context: CallbackContext):
 
     # todo: validate reaction
 
-    some_message_id = redis.awaited_reaction(user.id).decode()
+    some_message_id = redis.awaited_reaction(user.id)
     try:
         message = Message.objects.prefetch_related().get(id=some_message_id)
     except Message.DoesNotExist:

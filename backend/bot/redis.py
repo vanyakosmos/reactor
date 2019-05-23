@@ -50,7 +50,9 @@ def awaited_reaction(user):
     key = _state_key(user)
     state = rc.hget(key, 'state')
     if state and state.decode() == AWAITING_REACTION:
-        return rc.hget(key, 'payload')
+        value = rc.hget(key, 'payload')
+        if value:
+            return value.decode()
 
 
 def stop_awaiting_reaction(user):

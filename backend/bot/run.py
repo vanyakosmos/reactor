@@ -1,8 +1,7 @@
 import logging
-import re
 
 from django.conf import settings
-from telegram.ext import Updater
+from telegram.ext import Updater, Handler
 
 from .handlers import (
     commands,
@@ -17,11 +16,11 @@ from .handlers import (
 logger = logging.getLogger(__name__)
 
 
-def extract_by_pattern(pattern, data_holder):
+def extract_by_handler(data_holder):
     res = []
-    p = re.compile(pattern)
     for key, value in vars(data_holder).items():
-        if p.match(key):
+        handler = getattr(value, 'handler', None)
+        if handler and isinstance(handler, Handler):
             res.append(value)
     return res
 
@@ -40,11 +39,11 @@ def run():
     dp = updater.dispatcher
 
     handlers = [
-        *extract_by_pattern(r'command_(.+)', commands),
-        *extract_by_pattern(r'handle_(.+)', query_callback_handlers),
-        *extract_by_pattern(r'handle_(.+)', replies_handlers),
-        *extract_by_pattern(r'handle_(.+)', message_handlers),
-        *extract_by_pattern(r'handle_(.+)', inline_handlers),
+        *extract_by_handler(commands),
+        *extract_by_handler(query_callback_handlers),
+        *extract_by_handler(replies_handlers),
+        *extract_by_handler(message_handlers),
+        *extract_by_handler(inline_handlers),
         handle_new_member,
     ]
     inspect_handlers(handlers)
