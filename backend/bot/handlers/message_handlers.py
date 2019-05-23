@@ -1,6 +1,7 @@
 import logging
 
 from django.utils import timezone
+from emoji import UNICODE_EMOJI
 from telegram import (
     Update,
     Message as TGMessage,
@@ -141,7 +142,9 @@ def handle_reaction_response(update: Update, context: CallbackContext):
     msg = update.effective_message
     reaction = msg.text
 
-    # todo: validate reaction
+    if reaction not in UNICODE_EMOJI:
+        msg.reply_text(f"Reaction should be a single emoji.")
+        return
 
     some_message_id = redis.awaited_reaction(user.id)
     try:

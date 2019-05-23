@@ -83,8 +83,8 @@ def change_allow_reactions(update: Update, chat: Chat, values: list):
         chat,
         values,
         field='allow_reactions',
-        true_text="Will add reactions on reply with +.",
-        false_text="Will not add reactions on reply.",
+        true_text="Will add reactions on replies with +.",
+        false_text="Will not add reactions on replies.",
     )
 
 

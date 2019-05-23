@@ -17,9 +17,8 @@ Telegram bot that automatically add reaction buttons to messages (similar to sla
   - [x] buttons padding
   - [x] hide/show credits
   - [ ] reply to the original message instead of reposting it
-  - [ ] allow to disable custom reactions
-  - [ ] regulate button size (max string length)
-  - [ ] add emoji enforcing
+  - [x] allow to disable reactions
+  - [x] add emoji enforcing
 - [x] add forced processing/ignoring of message (using message prefix)
 - [x] reactions for channels via inline interface
 - [ ] add setting for inline posting
@@ -32,4 +31,3 @@ Telegram bot that automatically add reaction buttons to messages (similar to sla
 - reactions/db caching and/or remake bot (while keeping django admin/api) using faster lang (eg golang)
 - add some tests
 - add CI
-- channel post: forward message that is about to be voted on

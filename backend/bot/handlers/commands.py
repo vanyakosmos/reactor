@@ -67,7 +67,7 @@ def command_start(update: Update, context: CallbackContext):
         return
     user: TGUser = update.effective_user
     msg: TGMessage = update.effective_message
-    msg.reply_text('Now send me your reaction.')
+    msg.reply_text('Now send me your reaction. It should be a single emoji.')
     redis.await_reaction(user.id, context.args[0])
 
 

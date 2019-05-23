@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 def reply_to_reaction(bot, query, button, reaction):
     if reaction:
-        reply = f"You reacted with: {button.text}."
+        reply = f"You reacted with {button.text}."
     else:
         reply = "You took your reaction back."
     bot.answer_callback_query(query.id, reply)
