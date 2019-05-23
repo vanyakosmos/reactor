@@ -77,6 +77,7 @@ class Chat(TGMixin, models.Model):
     allowed_types = ArrayField(models.CharField(max_length=100), default=default_allowed_types)
     allow_reactions = models.BooleanField(default=True)
     force_emojis = models.BooleanField(default=False)
+    repost = models.BooleanField(default=True)
 
     @property
     def url(self):

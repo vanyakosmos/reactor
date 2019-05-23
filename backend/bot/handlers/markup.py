@@ -154,7 +154,7 @@ def make_reply_markup_from_chat(update, context, reactions=None, chat=None, mess
         )
         return None, reply_markup
 
-    if chat.show_credits:
+    if chat.show_credits and chat.repost:
         if message:
             credits = get_credits_from_message(message)
         else:

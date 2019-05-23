@@ -99,6 +99,17 @@ def change_force_emojis(update: Update, chat: Chat, values: list):
     )
 
 
+def change_repost(update: Update, chat: Chat, values: list):
+    change_bool(
+        update,
+        chat,
+        values,
+        field='repost',
+        true_text="Will repost new messages on my behalf.",
+        false_text="Will reply to messages with buttons.",
+    )
+
+
 @command('edit', pass_args=True, admin_required=True)
 def command_edit(update: Update, context: CallbackContext):
     """
@@ -123,5 +134,6 @@ def command_edit(update: Update, context: CallbackContext):
         'allowed_types': change_allowed_types,
         'allow_reactions': change_allow_reactions,
         'force_emojis': change_force_emojis,
+        'repost': change_repost,
     }
     change_mapper[field](update, chat, values)

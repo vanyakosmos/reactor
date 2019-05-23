@@ -10,6 +10,7 @@ from telegram.ext import (
     ChosenInlineResultHandler,
 )
 
+from bot.handlers.consts import MESSAGE_TYPES
 from bot.mwt import MWT
 from bot.redis import save_media_group
 from core.models import Chat, User
@@ -73,23 +74,15 @@ def try_delete(bot, update, msg):
 
 
 def get_message_type(msg: TGMessage):
-    msg_type = 'unknown'
     if msg.media_group_id:
         if save_media_group(msg.media_group_id):
-            msg_type = 'album'
-    elif msg.photo:
-        msg_type = 'photo'
-    elif msg.video:
-        msg_type = 'video'
-    elif msg.animation:
-        msg_type = 'animation'
-    elif msg.document:
-        msg_type = 'doc'
-    elif any((e['type'] == 'url' for e in msg.entities)):
-        msg_type = 'link'
-    elif msg.text:
-        msg_type = 'text'
-    return msg_type
+            return 'album'
+        return
+    if any((e['type'] == 'url' for e in msg.entities)):
+        return 'link'
+    for field in MESSAGE_TYPES:
+        if getattr(msg, field, None):
+            return field
 
 
 def get_chat_from_tg_chat(tg_chat: TGChat) -> Chat:
