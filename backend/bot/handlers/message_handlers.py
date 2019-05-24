@@ -28,11 +28,22 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
-def process_message(update: Update, context: CallbackContext, msg_type: str, chat: Chat):
+def process_message(
+    update: Update,
+    context: CallbackContext,
+    msg_type: str,
+    chat: Chat,
+    anonymous: bool,
+):
     msg: TGMessage = update.effective_message
     bot = context.bot
 
-    chat, reply_markup = make_reply_markup_from_chat(update, context, chat=chat)
+    chat, reply_markup = make_reply_markup_from_chat(
+        update,
+        context,
+        chat=chat,
+        anonymous=anonymous,
+    )
 
     if chat.repost:
         config = {
@@ -86,6 +97,7 @@ def process_message(update: Update, context: CallbackContext, msg_type: str, cha
         Message.objects.create_from_tg_ids(
             sent_msg.chat_id,
             sent_msg.message_id,
+            anonymous=anonymous,
             date=timezone.make_aware(msg.date),
             original_message_id=msg.message_id,
             from_user=get_user(update),
@@ -95,51 +107,57 @@ def process_message(update: Update, context: CallbackContext, msg_type: str, cha
         )
 
 
-def check_force_skip(msg: TGMessage):
-    """
-    Returns:
-        True if should message should be skipped.
-    """
+def get_magic_mark(msg: TGMessage):
     text: str = msg.text or msg.caption
-    if text and text.startswith('--'):
-        return True
-
-
-def check_force_repost(msg: TGMessage):
-    """
-    Check if reposting should be forced. If so - patch message and remove "++" (force mark).
-
-    Returns:
-        None - skip reposting, bool - forced/unforced reposting.
-    """
-    text: str = msg.text or msg.caption
-    force = bool(text and text.startswith('++'))
-    if force:
-        if msg.text and len(msg.text) > 2:
-            msg.text = msg.text[2:]
-        elif msg.text:
-            # can't repost message without text
-            return
-        if msg.caption and len(msg.caption) > 2:
-            msg.caption = msg.caption[2:]
-        else:
-            msg.caption = None
-    return force
-
-
-def check_force(msg: TGMessage):
-    if check_force_skip(msg):
+    if not text:
         return
-    return check_force_repost(msg)
+    for mark in ('--', '++', '~~', '+~'):
+        if text.startswith(mark):
+            return mark
+
+
+def remove_magic_mark(msg: TGMessage, mark: str):
+    s = len(mark)
+    if msg.text and len(msg.text) > s:
+        msg.text = msg.text[s:]
+    elif msg.text:
+        return False
+    if msg.caption and len(msg.caption) > s:
+        msg.caption = msg.caption[s:]
+    else:
+        msg.caption = None
+    return True
+
+
+def process_magic_mark(msg: TGMessage):
+    force = False
+    anon = False
+    skip = False
+    mark = get_magic_mark(msg)
+    if not mark:
+        pass
+    elif not remove_magic_mark(msg, mark):
+        skip = True
+    elif mark == '--':
+        skip = True
+    elif mark == '++':
+        force = True
+    elif mark == '~~':
+        anon = True
+    elif mark == '+~':
+        force = True
+        anon = True
+    return force, anon, skip
 
 
 @message_handler(Filters.group & ~Filters.reply & ~Filters.status_update)
 def handle_message(update: Update, context: CallbackContext):
     msg: TGMessage = update.effective_message
 
-    force = check_force(msg)
-    if force is None:
-        logger.debug("skipping message processing")
+    force, anonymous, skip = process_magic_mark(msg)
+    logger.debug(f"force: {force}, anonymous: {anonymous}, skip: {skip}")
+    if skip:
+        logger.debug('skipping message processing')
         return
 
     chat = get_chat_from_tg_chat(update.effective_chat)
@@ -148,10 +166,10 @@ def handle_message(update: Update, context: CallbackContext):
 
     msg_type = get_message_type(msg)
     forward = bool(msg.forward_date)
+    logger.debug(f"msg_type: {msg_type}, forward: {forward}")
 
-    logger.debug(f"force: {force}, msg_type: {msg_type}, forward: {forward}")
     if force or msg_type in allowed_types or forward and allow_forward:
-        process_message(update, context, msg_type, chat)
+        process_message(update, context, msg_type, chat, anonymous)
 
 
 @message_handler(Filters.private & Filters.text & reaction_filter)

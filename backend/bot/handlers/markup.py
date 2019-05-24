@@ -136,7 +136,14 @@ def make_reply_markup(
     return InlineKeyboardMarkup(keyboard)
 
 
-def make_reply_markup_from_chat(update, context, reactions=None, chat=None, message=None):
+def make_reply_markup_from_chat(
+    update,
+    context,
+    reactions=None,
+    chat=None,
+    message=None,
+    anonymous=False,
+):
     if not chat:
         if message:
             chat = message.chat
@@ -154,7 +161,10 @@ def make_reply_markup_from_chat(update, context, reactions=None, chat=None, mess
         )
         return None, reply_markup
 
-    if chat.show_credits and chat.repost:
+    if (
+        chat.show_credits and chat.repost and not anonymous and
+        (not message or not message.anonymous)
+    ):
         if message:
             credits = get_credits_from_message(message)
         else:

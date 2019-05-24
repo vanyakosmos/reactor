@@ -148,6 +148,7 @@ class Message(TGMixin, models.Model):
     )
     date = models.DateTimeField()
     chat = models.ForeignKey(Chat, on_delete=models.CASCADE, null=True)
+    anonymous = models.BooleanField(default=False)
     original_message_id = CharField(
         blank=True, null=True, help_text="Telegram ID of original message w/o appended chat ID."
     )
