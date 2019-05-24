@@ -4,6 +4,7 @@ from telegram import Message as TGMessage, ParseMode, Update, User as TGUser
 from telegram.ext import CallbackContext, Filters
 
 from bot import redis
+from bot.redis import State
 from core.models import Chat
 # noinspection PyUnresolvedReferences
 from .edit_command import command_edit
@@ -67,13 +68,14 @@ def command_start(update: Update, context: CallbackContext):
         return
     user: TGUser = update.effective_user
     msg: TGMessage = update.effective_message
-    msg.reply_text('Now send me your reaction. It should be a single emoji.')
-    redis.await_reaction(user.id, context.args[0])
+    msg.reply_text('Now send me your reaction. It can be a single emoji or a sticker.')
+    redis.set_state(user.id, State.reaction)
+    redis.set_key(user.id, 'message_id', context.args[0])
 
 
 @command('create', filters=Filters.private)
 def command_create(update: Update, context: CallbackContext):
     user: TGUser = update.effective_user
     msg: TGMessage = update.effective_message
-    msg.reply_text('Now send me your message to which you want me to add reactions panel.')
-    redis.await_create(user.id)
+    msg.reply_text('Send message to which you want me to add reactions.')
+    redis.set_state(user.id, State.create_start)

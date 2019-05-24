@@ -11,7 +11,7 @@ from emoji import UNICODE_EMOJI
 logger = logging.getLogger(__name__)
 
 
-@message_handler(Filters.reply & Filters.text & Filters.regex(r'\+(.+)'))
+@message_handler(Filters.group & Filters.reply & Filters.text & Filters.regex(r'\+(.+)'))
 def handle_reaction_reply(update: Update, context: CallbackContext):
     user = update.effective_user
     msg = update.effective_message
@@ -32,13 +32,16 @@ def handle_reaction_reply(update: Update, context: CallbackContext):
         logger.debug("can't react with non-emoji text")
         return
 
-    Reaction.objects.react(
+    _, button = Reaction.objects.react(
         user=user,
         chat_id=reply.chat_id,
         message_id=reply.message_id,
         inline_message_id=None,
         button_text=reaction,
     )
+    if not button:
+        msg.reply_text("Post already has too many reactions.")
+        return
     reactions = Button.objects.reactions(reply.chat_id, reply.message_id)
     _, reply_markup = make_reply_markup_from_chat(update, context, reactions, message=message)
     reply.edit_reply_markup(reply_markup=reply_markup)

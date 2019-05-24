@@ -1,6 +1,8 @@
 import functools
 import logging
 
+from django.utils.datastructures import OrderedSet
+from emoji import UNICODE_EMOJI
 from telegram import Update, Message as TGMessage, Chat as TGChat, User as TGUser
 from telegram.ext import (
     CommandHandler,
@@ -131,3 +133,25 @@ def get_forward_from(msg: TGMessage):
 def get_forward_from_chat(msg: TGMessage):
     if msg.forward_from_chat:
         return get_chat_from_tg_chat(msg.forward_from_chat)
+
+
+def clear_buttons(buttons: list, emojis=False):
+    buttons = [b for b in OrderedSet(buttons) if len(b) < 20]
+    if emojis and not all([b in UNICODE_EMOJI for b in buttons]):
+        return
+    return buttons
+
+
+def get_reactions(buttons, safe=False):
+    # if there is button then telegram will not send inline_message_id
+    if not buttons and safe:
+        return [{
+            'index': 0,
+            'text': '-',
+            'count': 0,
+        }]
+    return [{
+        'index': index,
+        'text': text,
+        'count': 0,
+    } for index, text in enumerate(buttons)]

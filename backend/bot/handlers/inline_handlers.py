@@ -10,6 +10,7 @@ from telegram import (
     ParseMode,
     Update,
     User as TGUser,
+    Message as TGMessage,
 )
 from telegram.error import BadRequest
 from telegram.ext import CallbackContext
@@ -17,35 +18,47 @@ from telegram.ext import CallbackContext
 from bot import redis
 from core.models import Message
 from .markup import make_reply_markup, make_reply_markup_from_chat
-from .utils import chosen_inline_handler, get_user, inline_query_handler, get_message_type
-from .filters import creation_filter
+from .utils import (
+    chosen_inline_handler,
+    get_user,
+    inline_query_handler,
+    get_message_type,
+    get_reactions,
+)
 
 logger = logging.getLogger(__name__)
 
 
-def get_reactions(buttons):
-    return [{
-        'index': index,
-        'text': text,
-        'count': 0,
-    } for index, text in enumerate(buttons)]
+def get_msg_and_buttons(user: TGUser, bot):
+    # not_create_end = not StateFilter.create_end.filter_by_user(user)
+    msg = redis.get_json(user.id, 'message')
+    if msg is None:
+        logger.debug("no message in store")
+        # logger.debug("not at create_end state.")
+        return
+    # msg = redis.get_json(user.id, 'message')
+    msg = TGMessage.de_json(msg, bot)
+    buttons = redis.get_json(user.id, 'buttons', [])
+    if not msg:
+        logger.debug("no message")
+        return
+    return msg, buttons
 
 
 @inline_query_handler(pattern='publish')
 def handle_publishing_options(update: Update, context: CallbackContext):
     user: TGUser = update.effective_user
 
-    if not creation_filter.filter_by_user(update.effective_user):
-        logger.debug("Not at creation state.")
+    msg_buttons = get_msg_and_buttons(user, context.bot)
+    if not msg_buttons:
         return
-    msg, buttons = redis.get_creation(user.id, context.bot)
+    msg, buttons = msg_buttons
 
-    reply_markup = make_reply_markup(context.bot, get_reactions(buttons))
-
+    reply_markup = make_reply_markup(context.bot, get_reactions(buttons, safe=True))
     msg_type = get_message_type(msg)
     config = {
         'id': str(uuid4()),
-        'title': "Message to publish",
+        'title': msg.text_markdown or msg.caption_markdown or "Message to publish.",
         'text': msg.text_markdown,
         'caption': msg.caption_markdown,
         'parse_mode': ParseMode.MARKDOWN,
@@ -76,6 +89,8 @@ def handle_publishing_options(update: Update, context: CallbackContext):
 
 @chosen_inline_handler()
 def handle_publishing(update: Update, context: CallbackContext):
+    user: TGUser = update.effective_user
+
     res = update.chosen_inline_result
     if res.query != 'publish':
         return
@@ -84,8 +99,11 @@ def handle_publishing(update: Update, context: CallbackContext):
         logger.exception("Invalid inline query.")
         return
 
-    user: TGUser = update.effective_user
-    msg, buttons = redis.get_creation(user.id, context.bot)
+    msg_buttons = get_msg_and_buttons(user, context.bot)
+    if not msg_buttons:
+        return
+    msg, buttons = msg_buttons
+
     message = Message.objects.create_from_inline(
         inline_message_id=inline_id,
         buttons=buttons,

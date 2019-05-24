@@ -16,6 +16,7 @@ psycopg2-binary = "^2.8"
 redis = "^3.2"
 python-telegram-bot = "=12.0.0b1"
 emoji = "^0.5.2"
+regex = "^2019.4"
 
 [tool.poetry.dev-dependencies]
 

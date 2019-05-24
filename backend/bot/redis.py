@@ -1,16 +1,24 @@
 import json
 import logging
-from typing import Tuple
+from enum import Enum, auto
 
 import redis
 from django.conf import settings
-from telegram import Message as TGMessage
 
 logger = logging.getLogger(__name__)
 rc = redis.Redis.from_url(settings.REDIS_URL)
 
-AWAITING_REACTION = 'AWAITING_REACTION'
-AWAITING_CREATION = 'AWAITING_CREATION'
+STATE_EXPIRY = 60 * 60
+
+
+class State(Enum):
+    reaction = auto()
+    create_start = auto()
+    create_buttons = auto()
+    create_end = auto()
+
+    def __str__(self):
+        return self._name_
 
 
 def save_media_group(media_group, expire=60):
@@ -23,67 +31,46 @@ def save_media_group(media_group, expire=60):
 
 
 def _state_key(user):
+    user = getattr(user, 'id', user)
     return f'state:{user}'
 
 
-def _set_state(user, state, payload=None, expire=60 * 60):
-    logger.debug(f"set state: {user}, {state}, {payload}")
+def set_state(user, state: State):
     key = _state_key(user)
-    rc.hset(key, 'state', state)
-    if payload:
-        rc.hset(key, 'payload', payload)
-    rc.expire(key, expire)
+    rc.hset(key, 'state', str(state))
+    rc.expire(key, STATE_EXPIRY)
 
 
-def _del_state(user, state):
+def set_key(user, key, value):
+    state_key = _state_key(user)
+    if isinstance(value, (dict, list, tuple)):
+        value = json.dumps(value)
+    rc.hset(state_key, key, value)
+    rc.expire(state_key, STATE_EXPIRY)
+
+
+def get_key(user, key, default=None):
+    state_key = _state_key(user)
+    value = rc.hget(state_key, key)
+    if not value:
+        return default
+    return value.decode()
+
+
+def get_json(user, key, default=None):
+    state_key = _state_key(user)
+    value = rc.hget(state_key, key)
+    if not value:
+        return default
+    return json.loads(value.decode())
+
+
+def check_state(user, state: State):
     key = _state_key(user)
-    s = rc.hget(key, 'state')
-    if s and s.decode() == state:
-        return rc.delete(key)
+    stored_state = rc.hget(key, 'state')
+    return bool(stored_state and stored_state.decode() == str(state))
 
 
-def await_reaction(user, payload):
-    _set_state(user, AWAITING_REACTION, payload)
-
-
-def awaited_reaction(user):
+def clear_state(user):
     key = _state_key(user)
-    state = rc.hget(key, 'state')
-    if state and state.decode() == AWAITING_REACTION:
-        value = rc.hget(key, 'payload')
-        if value:
-            return value.decode()
-
-
-def stop_awaiting_reaction(user):
-    _del_state(user, AWAITING_REACTION)
-
-
-def await_create(user):
-    _set_state(user, AWAITING_CREATION)
-
-
-def awaiting_creation(user):
-    key = _state_key(user)
-    state = rc.hget(key, 'state')
-    return state and state.decode() == AWAITING_CREATION
-
-
-def save_creation(user, message_dict, buttons, expire=60 * 60):
-    key = _state_key(user)
-    rc.hset(key, 'state', AWAITING_CREATION)
-    rc.hset(key, 'message', json.dumps(message_dict))
-    rc.hset(key, 'buttons', json.dumps(buttons))
-    rc.expire(key, expire)
-
-
-def get_creation(user, bot) -> Tuple[TGMessage, list]:
-    key = _state_key(user)
-    message = json.loads(rc.hget(key, 'message'))
-    message = TGMessage.de_json(message, bot)
-    buttons = json.loads(rc.hget(key, 'buttons'))
-    return message, buttons
-
-
-def stop_awaiting_creation(user):
-    _del_state(user, AWAITING_CREATION)
+    return rc.hdel(key, 'state')

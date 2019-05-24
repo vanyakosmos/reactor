@@ -2,24 +2,23 @@ from telegram import Message as TGMessage, User as TGUser
 from telegram.ext import BaseFilter
 
 from bot import redis
+from bot.redis import State
 
 
-class _ReactionFilter(BaseFilter):
-    def filter(self, message: TGMessage):
-        user: TGUser = message.from_user
-        return user and bool(redis.awaited_reaction(user.id))
+class StateFilter:
+    class _StateFilter(BaseFilter):
+        def __init__(self, state):
+            self.state = state
+            self.name = f'StateFilter({state})'
 
+        def filter_by_user(self, user: TGUser):
+            return bool(user and redis.check_state(user.id, self.state))
 
-reaction_filter = _ReactionFilter()
+        def filter(self, message: TGMessage):
+            user: TGUser = message.from_user
+            return self.filter_by_user(user)
 
-
-class _CreationFilter(BaseFilter):
-    def filter_by_user(self, user: TGUser):
-        return user and bool(redis.awaiting_creation(user.id))
-
-    def filter(self, message: TGMessage):
-        user: TGUser = message.from_user
-        return self.filter_by_user(user)
-
-
-creation_filter = _CreationFilter()
+    reaction = _StateFilter(State.reaction)
+    create_start = _StateFilter(State.create_start)
+    create_buttons = _StateFilter(State.create_buttons)
+    create_end = _StateFilter(State.create_end)

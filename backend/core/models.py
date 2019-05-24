@@ -126,16 +126,17 @@ class MessageQuerySet(models.QuerySet):
         ])
         return msg
 
-    def create_from_tg_ids(self, chat_id, message_id, **kwargs):
+    def create_from_tg_ids(self, chat_id, message_id, buttons=None, **kwargs):
         """
         Create message based on chat ID and original telegram message ID.
         Populate buttons.
         """
         umid = Message.get_id(chat_id, message_id)
         msg = self.create(id=umid, chat_id=chat_id, **kwargs)
+        buttons = msg.chat.buttons if buttons is None else buttons
         Button.objects.bulk_create([
             Button(message=msg, index=index, text=text, permanent=True)
-            for index, text in enumerate(msg.chat.buttons)
+            for index, text in enumerate(buttons)
         ])
         return msg
 
@@ -268,7 +269,8 @@ class ButtonManager(models.Manager):
         except Button.DoesNotExist:
             b = self.filter(message_id=umid).last()
             index = b.index + 1 if b else 0
-            return Button.objects.create(message_id=umid, text=reaction, index=index)
+            if index < 64:
+                return Button.objects.create(message_id=umid, text=reaction, index=index)
 
     def reactions(self, chat_id, message_id, inline_message_id=None):
         return [{
@@ -331,6 +333,8 @@ class ReactionManager(models.Manager):
         """
         umid = Message.get_id(chat_id, message_id, inline_message_id)
         button = Button.objects.get_for_reaction(button_text, umid)
+        if not button:
+            return None, None
         try:
             r = Reaction.objects.get(
                 user_id=user.id,
