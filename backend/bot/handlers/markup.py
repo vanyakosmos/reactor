@@ -149,7 +149,7 @@ def make_reply_markup_from_chat(
             chat = message.chat
         else:
             chat, _ = Chat.objects.get_or_create(id=update.effective_message.chat_id)
-    if not reactions:
+    if reactions is None:
         reactions = chat.reactions()
 
     # message doesn't have chat and it wasn't provided as arg

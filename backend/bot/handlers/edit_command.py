@@ -1,17 +1,16 @@
-from django.utils.datastructures import OrderedSet
 from telegram import Update
 from telegram.ext import CallbackContext
 
 from core.models import Chat
 from .consts import CHAT_FIELDS, MESSAGE_TYPES
-from .utils import command, get_chat
+from .utils import command, get_chat, clear_buttons
 
 
 def change_buttons(update: Update, chat: Chat, values: list):
     if len(values) > 64:
         update.message.reply_text("Too many buttons.")
         return
-    bs = [b for b in OrderedSet(values) if len(b) < 20]
+    bs = clear_buttons(values)
     chat.buttons = bs
     chat.save()
     bs = ' '.join(bs)
@@ -74,7 +73,7 @@ def change_allowed_types(update: Update, chat: Chat, values: list):
     chat.allowed_types = types
     chat.save()
     types_str = ' '.join(sorted(types))
-    update.message.reply_text(f"Allowed types: [{types_str}].")
+    update.effective_message.reply_text(f"Allowed types: [{types_str}].")
 
 
 def change_allow_reactions(update: Update, chat: Chat, values: list):
@@ -105,8 +104,8 @@ def change_repost(update: Update, chat: Chat, values: list):
         chat,
         values,
         field='repost',
-        true_text="Will repost new messages on my behalf.",
-        false_text="Will reply to messages with buttons.",
+        true_text="Will repost new messages.",
+        false_text="Will reply to messages instead of reposting them.",
     )
 
 

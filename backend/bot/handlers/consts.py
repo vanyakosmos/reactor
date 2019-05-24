@@ -12,6 +12,8 @@ MESSAGE_TYPES = [
     'contact',
     'location',
     'venue',
+    'forward',
+    'links',
 ]
 CHAT_FIELDS = {
     'buttons': "permanent predefined buttons",
