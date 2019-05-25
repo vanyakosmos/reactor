@@ -3,6 +3,51 @@
 Telegram bot that automatically add reaction buttons to messages (similar to slack/discord).
 
 
+## Usage in group
+
+- add bot to the group
+- give him admin rights (so it could delete messages)
+- send message with media content -> bot will repost it with buttons
+- reply to that message with "+button" to add new reaction
+- use /help /settings /edit to monitor and control bot's behaviour
+
+
+## Usage in channel
+
+- go to private chat with bot
+- /create
+- send message that you would like to "reactify"
+- go to the channel and publish that message via inline interface (`@botname uuid` -> pick message)
+- press "vote" to add new reaction -> will be redirected to the private chat with bot -> send emoji/sticker
+
+
+## Magic Marks
+
+(groups only)
+
+Apply special action by adding prefix to message caption.
+
+```
+# force bot to ignore message
+.-text
+
+# force bot to repost message
+.+text
+
+# force bot to repost message on his behalf
+.++text
+ 
+# hide credits
+.~text
+
+# show "a, b" buttons instead of default ones in that chat
+.`a b`text
+
+# combine marks
+.+~`a b`text
+```
+
+
 ## TODOs
 
 #### features:
@@ -19,15 +64,17 @@ Telegram bot that automatically add reaction buttons to messages (similar to sla
   - [x] reply to the original message instead of reposting it
   - [x] allow to disable reactions
   - [x] add emoji enforcing
-- [x] add forced processing/ignoring of message (using message prefix)
+- [x] add forced processing/anonymity/ignore/custom buttons via magic marks (text/caption prefixes)
 - [x] reactions for channels via inline interface
-- [ ] add setting for inline posting
+- [x] add setting for inline posting
+- [ ] gather and store chat statistics
 - [ ] add web UI for chat administration and statistics
 
 #### misc:
 
 - restructure django settings
+- add clean up cronjob (remove old messages>buttons>reactions)
 - add automatic backups
-- reactions/db caching and/or remake bot (while keeping django admin/api) using faster lang (eg golang)
 - add some tests
 - add CI
+- apply reactions in bulk on high load
