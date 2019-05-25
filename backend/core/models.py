@@ -1,11 +1,13 @@
-from django.contrib.postgres.fields import ArrayField
+import uuid
+
+from django.contrib.postgres.fields import ArrayField, JSONField
 from django.db import models, IntegrityError
 from django.utils import timezone
 from telegram import Chat as TGChat, Message as TGMessage, User as TGUser
 
 from .fields import CharField
 
-__all__ = ['Chat', 'Message', 'Button', 'Reaction', 'User']
+__all__ = ['Chat', 'Message', 'Button', 'Reaction', 'User', 'UserButtons', 'MessageToPublish']
 
 
 class TGMixin:
@@ -372,3 +374,53 @@ class Reaction(models.Model):
 
     def __str__(self):
         return f"R({self.user_id} {self.message_id} {self.button.text})"
+
+
+class MessageToPublish(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    message = JSONField()
+    buttons = ArrayField(CharField(), null=True, blank=True)
+    created = models.DateTimeField(auto_now_add=True)
+
+    @classmethod
+    def last(cls, user_id):
+        return MessageToPublish.objects.filter(user_id=user_id).last()
+
+    @property
+    def message_tg(self) -> TGMessage:
+        return TGMessage.de_json(self.message, None)
+
+    class Meta:
+        ordering = ('created',)
+
+
+class UserButtons(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    buttons = ArrayField(CharField())
+    created = models.DateTimeField(auto_now_add=True)
+
+    @classmethod
+    def delete_old(cls, user_id, limit=3):
+        ubs = UserButtons.objects.filter(user_id=user_id)
+        ubs = ubs[:limit].values_list('id', flat=True)
+        UserButtons.objects.exclude(pk__in=list(ubs)).delete()
+
+    @classmethod
+    def create(cls, user_id, buttons, limit=3):
+        if not UserButtons.objects.filter(user_id=user_id, buttons=buttons).exists():
+            ub = UserButtons.objects.create(user_id=user_id, buttons=buttons)
+            cls.delete_old(user_id, limit)
+            return ub
+
+    @classmethod
+    def buttons_list(cls, user_id):
+        ubs = UserButtons.objects.filter(user_id=user_id)
+        return [ub.buttons_str for ub in ubs]
+
+    @property
+    def buttons_str(self):
+        return ' '.join(self.buttons)
+
+    class Meta:
+        ordering = ('-created',)

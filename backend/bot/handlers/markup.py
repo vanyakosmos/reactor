@@ -107,12 +107,13 @@ def make_reply_markup(
     max_cols=5,
     credits=None,
     vote_payload=None,
+    blank=False,
 ):
     keys = []
     for rate in rates:
         text = rate['text']
         count = rate['count']
-        payload = f"button:{text}"
+        payload = '~' if blank else f"button:{text}"
         if count:
             text = f'{text} {count}'
         keys.append(InlineKeyboardButton(text, callback_data=payload))

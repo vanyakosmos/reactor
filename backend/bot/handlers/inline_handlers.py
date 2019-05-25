@@ -1,6 +1,7 @@
 import logging
 from uuid import uuid4
 
+from django.core.exceptions import ValidationError
 from telegram import (
     InlineQueryResultArticle,
     InlineQueryResultCachedPhoto,
@@ -10,13 +11,11 @@ from telegram import (
     ParseMode,
     Update,
     User as TGUser,
-    Message as TGMessage,
 )
 from telegram.error import BadRequest
 from telegram.ext import CallbackContext
 
-from bot import redis
-from core.models import Message
+from core.models import Message, MessageToPublish
 from .markup import make_reply_markup, make_reply_markup_from_chat
 from .utils import (
     chosen_inline_handler,
@@ -29,27 +28,22 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 
-def get_msg_and_buttons(user: TGUser, bot):
-    # not_create_end = not StateFilter.create_end.filter_by_user(user)
-    msg = redis.get_json(user.id, 'message')
-    if msg is None:
-        logger.debug("no message in store")
-        # logger.debug("not at create_end state.")
+def get_msg_and_buttons(user: TGUser, query):
+    try:
+        mpt = MessageToPublish.objects.get(id=query, user_id=user.id)
+        msg = mpt.message_tg
+        buttons = mpt.buttons
+        return msg, buttons
+    except (MessageToPublish.DoesNotExist, ValidationError):
+        logger.debug(f"message to publish doesn't exist. user_id: {user.id}, query: {query}")
         return
-    # msg = redis.get_json(user.id, 'message')
-    msg = TGMessage.de_json(msg, bot)
-    buttons = redis.get_json(user.id, 'buttons', [])
-    if not msg:
-        logger.debug("no message")
-        return
-    return msg, buttons
 
 
-@inline_query_handler(pattern='publish')
+@inline_query_handler()
 def handle_publishing_options(update: Update, context: CallbackContext):
     user: TGUser = update.effective_user
 
-    msg_buttons = get_msg_and_buttons(user, context.bot)
+    msg_buttons = get_msg_and_buttons(user, update.inline_query.query)
     if not msg_buttons:
         return
     msg, buttons = msg_buttons
@@ -92,14 +86,12 @@ def handle_publishing(update: Update, context: CallbackContext):
     user: TGUser = update.effective_user
 
     res = update.chosen_inline_result
-    if res.query != 'publish':
-        return
     inline_id = res.inline_message_id
     if not inline_id:
         logger.exception("Invalid inline query.")
         return
 
-    msg_buttons = get_msg_and_buttons(user, context.bot)
+    msg_buttons = get_msg_and_buttons(user, res.query)
     if not msg_buttons:
         return
     msg, buttons = msg_buttons

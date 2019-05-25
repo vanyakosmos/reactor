@@ -7,17 +7,17 @@ from telegram import (
     Update,
     Message as TGMessage,
     User as TGUser,
-    InlineKeyboardMarkup,
     InlineKeyboardButton,
     ReplyKeyboardMarkup,
+    Bot,
 )
 from telegram.ext import CallbackContext, Filters
 
 from bot import redis
 from bot.redis import State
-from core.models import Button, Chat, Message, Reaction
+from core.models import Button, Chat, Message, Reaction, MessageToPublish, UserButtons
 from .filters import StateFilter
-from .markup import make_reply_markup_from_chat
+from .markup import make_reply_markup_from_chat, make_reply_markup
 from .utils import (
     message_handler,
     try_delete,
@@ -32,6 +32,43 @@ from .utils import (
 
 logger = logging.getLogger(__name__)
 MAGIC_MARK = regex.compile(r'\.(-|\+|~|`.*`)+.*')
+
+
+def repost_message(msg: TGMessage, bot: Bot, msg_type, reply_markup):
+    config = {
+        'chat_id': msg.chat_id,
+        'text': msg.text_html,
+        'caption': msg.caption_html,
+        'disable_notification': True,
+        'parse_mode': 'HTML',
+        'reply_markup': reply_markup,
+        # files
+        'photo': msg.photo and msg.photo[0].file_id,
+        'video': msg.video and msg.video.file_id,
+        'animation': msg.animation and msg.animation.file_id,
+        'document': msg.document and msg.document.file_id,
+        'audio': msg.audio and msg.audio.file_id,
+        'voice': msg.voice and msg.voice.file_id,
+        'video_note': msg.video_note and msg.video_note.file_id,
+        'sticker': msg.sticker and msg.sticker.file_id,
+    }
+    sender_map = {
+        'text': bot.send_message,
+        'link': bot.send_message,
+        'photo': bot.send_photo,
+        'video': bot.send_video,
+        'animation': bot.send_animation,
+        'document': bot.send_document,
+        'audio': bot.send_audio,
+        'voice': bot.send_voice,
+        'video_note': bot.send_video_note,
+        'sticker': bot.send_sticker,
+    }
+    if msg_type in sender_map:
+        sent_msg = sender_map[msg_type](**config)
+    else:
+        sent_msg = None
+    return sent_msg
 
 
 def process_message(
@@ -55,42 +92,10 @@ def process_message(
         anonymous=anonymous,
     )
 
-    repost_message = (chat.repost or repost) and msg_type != 'album'
+    should_repost = (chat.repost or repost) and msg_type != 'album'
 
-    if repost_message:
-        config = {
-            'chat_id': msg.chat_id,
-            'text': msg.text_html,
-            'caption': msg.caption_html,
-            'disable_notification': True,
-            'parse_mode': 'HTML',
-            'reply_markup': reply_markup,
-            # files
-            'photo': msg.photo and msg.photo[0].file_id,
-            'video': msg.video and msg.video.file_id,
-            'animation': msg.animation and msg.animation.file_id,
-            'document': msg.document and msg.document.file_id,
-            'audio': msg.audio and msg.audio.file_id,
-            'voice': msg.voice and msg.voice.file_id,
-            'video_note': msg.video_note and msg.video_note.file_id,
-            'sticker': msg.sticker and msg.sticker.file_id,
-        }
-        sender_map = {
-            'text': bot.send_message,
-            'link': bot.send_message,
-            'photo': bot.send_photo,
-            'video': bot.send_video,
-            'animation': bot.send_animation,
-            'document': bot.send_document,
-            'audio': bot.send_audio,
-            'voice': bot.send_voice,
-            'video_note': bot.send_video_note,
-            'sticker': bot.send_sticker,
-        }
-        if msg_type in sender_map:
-            sent_msg = sender_map[msg_type](**config)
-        else:
-            sent_msg = None
+    if should_repost:
+        sent_msg = repost_message(msg, bot, msg_type, reply_markup)
     else:
         sent_msg = msg.reply_text(
             text='^',
@@ -100,7 +105,7 @@ def process_message(
 
     logger.debug(f"sent_msg: {sent_msg}")
     if sent_msg:
-        if repost_message:
+        if should_repost:
             try_delete(bot, update, msg)
         Message.objects.create_from_tg_ids(
             sent_msg.chat_id,
@@ -231,15 +236,19 @@ def handle_reaction_response(update: Update, context: CallbackContext):
 def handle_create_start(update: Update, context: CallbackContext):
     user: TGUser = update.effective_user
     msg: TGMessage = update.effective_message
-    redis.set_key(user, 'message', msg.to_dict())
+    MessageToPublish.objects.create(user_id=user.id, message=msg.to_dict())
 
-    # todo: get button from user preferences
+    buttons = [
+        *UserButtons.buttons_list(user.id),
+        '👍 👎',
+        '✅ ❌',
+    ]
+    buttons = buttons[:3]
     msg.reply_text(
         "Now specify buttons.",
         reply_markup=ReplyKeyboardMarkup.from_column(
             [
-                '👍 👎',
-                '✅ ❌',
+                *buttons,
                 'none',
             ],
             resize_keyboard=True,
@@ -261,22 +270,21 @@ def handle_create_buttons(update: Update, context: CallbackContext):
         if not buttons:
             msg.reply_text("Buttons should be emojis.")
             return
-    # todo: save buttons in user preferences for future use
-    redis.set_key(user, 'buttons', buttons)
-    original_msg = redis.get_json(user.id, 'message')
+        UserButtons.create(user.id, buttons)
 
-    context.bot.send_message(
-        chat_id=msg.chat_id,
-        text=(
-            "Press 'publish' and choose chat/channel.\n"
-            "Publishing will be available for 1 hour."
-        ),
-        reply_to_message_id=original_msg['message_id'],
-        reply_markup=InlineKeyboardMarkup.from_button(
-            InlineKeyboardButton(
-                "publish",
-                switch_inline_query="publish",
-            )
+    mtp = MessageToPublish.last(user.id)
+    mtp.buttons = buttons
+    mtp.save()
+
+    msg.reply_text("Press 'publish' and choose chat/channel.")
+    message = mtp.message_tg
+    msg_type = get_message_type(message)
+    reply_markup = make_reply_markup(context.bot, get_reactions(buttons), blank=True)
+    reply_markup.inline_keyboard.append([
+        InlineKeyboardButton(
+            "publish",
+            switch_inline_query=str(mtp.id),
         )
-    )
+    ])
+    repost_message(message, context.bot, msg_type, reply_markup)
     redis.set_state(user, State.create_end)
