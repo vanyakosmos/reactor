@@ -112,12 +112,9 @@ def change_repost(update: Update, chat: Chat, values: list):
 @command('edit', pass_args=True, admin_required=True)
 def command_edit(update: Update, context: CallbackContext):
     """
-    Change settings.
-
-    Examples::
-
-        /edit allowed_types photo video
-        /edit credits true
+    Edit setting fields.
+        ex: `/edit buttons a b c` - replace all buttons
+        ex: `/edit buttons` - remove buttons
     """
     if len(context.args) < 2:
         return

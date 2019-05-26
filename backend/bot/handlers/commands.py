@@ -6,7 +6,6 @@ from telegram.ext import CallbackContext, Filters
 from bot import redis
 from bot.redis import State
 from core.models import Chat
-# noinspection PyUnresolvedReferences
 from .edit_command import command_edit
 from .consts import CHAT_FIELDS
 from .utils import command, get_chat
@@ -14,28 +13,34 @@ from .utils import command, get_chat
 logger = logging.getLogger(__name__)
 
 
-@command('help')
+def get_commands_help(*commands):
+    for cmd in commands:
+        names = ' '.join([f"/{c}" for c in cmd.handler.command])
+        docs = cmd.__doc__
+        if docs:
+            docs = docs.strip()
+            yield f"{names} - {docs}"
+        else:
+            yield names
+
+
+@command(('help', 'h'))
 def command_help(update: Update, context: CallbackContext):
+    """Show list of commands."""
     text = '\n'.join([
         "This bot can automagically add reactions panel to messages.\n",
-        "/help - print commands",
+        *get_commands_help(command_help),
         "Private chat commands:",
-        "/create - create new post",
+        *get_commands_help(command_create),
         "Chat commands:",
-        "/settings - show chat settings",
-        "  ex: `/settings help` - show commands and help text",
-        "/edit - change setting fields",
-        "  ex: `/edit buttons a b c` - replace all buttons",
-        "  ex: `/edit buttons` - remove buttons",
-        "/patch - add/remove items to/from list-like setting's fields.",
-        "  ex: `/patch + buttons d g` - add 2 new buttons",
-        "  ex: `/patch - buttons a` - remove 1 button if present",
+        *get_commands_help(command_settings, command_edit),
     ])
     update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
 
 def format_chat_settings(chat: Chat, show_help_text=False):
     settings_list = []
+    just = max(map(len, CHAT_FIELDS))
     for field, help_text in CHAT_FIELDS.items():
         value = getattr(chat, field)
         if isinstance(value, list):
@@ -43,18 +48,20 @@ def format_chat_settings(chat: Chat, show_help_text=False):
         elif isinstance(value, bool):
             value = 'true' if value else 'false'
         if show_help_text:
-            settings_list.append(f"# {help_text}\n{field} = {value}\n")
+            settings_list.append(f"# {help_text}\n> {field} = {value}\n")
         else:
-            field = field.ljust(15)
+            field = field.ljust(just)
             settings_list.append(f"{field} - {value}")
     settings_text = '\n'.join(settings_list)
     return f"```\n{settings_text}\n```"
 
 
-@command('settings', pass_args=True)
+@command(('settings', 'sets'), filters=Filters.group, pass_args=True)
 def command_settings(update: Update, context: CallbackContext):
     """
-    Show list of settings.
+    Show list of group chat settings.
+        ex: `/settings` - show commands
+        ex: `/settings help` - show commands and help text
     """
     show_help_text = context.args and context.args[0] == 'help'
     chat = get_chat(update)
@@ -62,8 +69,14 @@ def command_settings(update: Update, context: CallbackContext):
     update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
 
 
-@command('start', pass_args=True, filters=Filters.private)
+@command(('settings', 'sets'), filters=Filters.private)
+def command_settings_private(update: Update, context: CallbackContext):
+    update.message.reply_text("Can show settings only in group chat.")
+
+
+@command('start', filters=Filters.private, pass_args=True)
 def command_start(update: Update, context: CallbackContext):
+    """Initiate reaction."""
     if not context.args:
         return
     user: TGUser = update.effective_user
@@ -75,6 +88,7 @@ def command_start(update: Update, context: CallbackContext):
 
 @command('create', filters=Filters.private)
 def command_create(update: Update, context: CallbackContext):
+    """Create new post."""
     user: TGUser = update.effective_user
     msg: TGMessage = update.effective_message
     msg.reply_text('Send message to which you want me to add reactions.')
