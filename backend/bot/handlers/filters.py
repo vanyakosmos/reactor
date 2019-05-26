@@ -5,6 +5,17 @@ from bot import redis
 from bot.redis import State
 
 
+class ReplyToBot(BaseFilter):
+    def filter(self, message: TGMessage):
+        return (
+            message.reply_to_message and
+            message.bot.username == message.reply_to_message.from_user.username
+        )
+
+
+reply_to_bot = ReplyToBot()
+
+
 class StateFilter:
     class _StateFilter(BaseFilter):
         def __init__(self, state):

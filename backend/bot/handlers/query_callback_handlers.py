@@ -18,7 +18,7 @@ def reply_to_reaction(bot, query, button, reaction):
     bot.answer_callback_query(query.id, reply)
 
 
-@callback_query_handler(pattern=r"button:(.+)")
+@callback_query_handler(pattern=r"^button:(.+)$")
 @run_async
 def handle_button_callback(update: Update, context: CallbackContext):
     msg = update.effective_message
@@ -49,7 +49,7 @@ def handle_button_callback(update: Update, context: CallbackContext):
     context.bot.edit_message_reply_markup(reply_markup=reply_markup, **mids)
 
 
-@callback_query_handler(pattern="~")
+@callback_query_handler(pattern="^~$")
 @run_async
 def handle_empty_callback(update: Update, context: CallbackContext):
     update.callback_query.answer(cache_time=10)

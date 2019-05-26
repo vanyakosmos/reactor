@@ -122,10 +122,7 @@ class MessageQuerySet(models.QuerySet):
             inline_message_id=inline_message_id,
             **kwargs,
         )
-        Button.objects.bulk_create([
-            Button(message=msg, index=index, text=text, permanent=True)
-            for index, text in enumerate(buttons)
-        ])
+        msg.set_buttons(buttons)
         return msg
 
     def create_from_tg_ids(self, chat_id, message_id, buttons=None, **kwargs):
@@ -255,6 +252,12 @@ class Message(TGMixin, models.Model):
             base_url = self.forward_from_chat.url
             if base_url:
                 return f'{base_url}/{self.forward_from_message_id}'
+
+    def set_buttons(self, buttons, permanent=True):
+        Button.objects.bulk_create([
+            Button(message=self, index=index, text=text, permanent=permanent)
+            for index, text in enumerate(buttons)
+        ])
 
     def __str__(self):
         return f"Message({self.id})"

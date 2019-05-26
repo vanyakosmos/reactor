@@ -25,7 +25,7 @@ Telegram bot that automatically add reaction buttons to messages (similar to sla
 
 (groups only)
 
-Apply special action by adding prefix to message caption.
+Apply special action by adding prefix to message's text/caption.
 
 ```
 # force bot to ignore message
@@ -41,10 +41,21 @@ Apply special action by adding prefix to message caption.
 .~text
 
 # show "a, b" buttons instead of default ones in that chat
-.`a b`text
+.``text
+.`👍 👎`text
 
 # combine marks
-.+~`a b`text
+.+~`👍 👎`text
+```
+
+Some magic marks also work with replies (if you are the original poster of that message)
+```
+# toggle credits
+.~
+
+# change buttons
+.``
+.`👍 👎`
 ```
 
 
@@ -73,6 +84,7 @@ Apply special action by adding prefix to message caption.
 #### misc:
 
 - restructure django settings
+- refactor this mess
 - add clean up cronjob (remove old messages>buttons>reactions)
 - add automatic backups
 - add some tests

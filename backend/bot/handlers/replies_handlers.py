@@ -1,9 +1,12 @@
 import logging
 
-from telegram import Update
+from telegram import Update, Message as TGMessage
+from telegram.error import BadRequest
 from telegram.ext import CallbackContext, Filters
 
+from bot.handlers.magic_marks import process_magic_mark
 from core.models import Button, Reaction, Message
+from .filters import reply_to_bot
 from .markup import make_reply_markup_from_chat
 from .utils import message_handler, try_delete
 from emoji import UNICODE_EMOJI
@@ -11,17 +14,34 @@ from emoji import UNICODE_EMOJI
 logger = logging.getLogger(__name__)
 
 
-@message_handler(Filters.group & Filters.reply & Filters.text & Filters.regex(r'\+(.+)'))
+def get_msg(reply: TGMessage):
+    try:
+        return Message.objects.prefetch_related().get_by_ids(reply.chat_id, reply.message_id)
+    except Message.DoesNotExist:
+        logger.debug(f"message doesn't exist. reply: {reply}")
+
+
+def update_markup(update, context, message, tg_message, reply):
+    reactions = Button.objects.reactions(reply.chat_id, reply.message_id)
+    _, reply_markup = make_reply_markup_from_chat(update, context, reactions, message=message)
+    try:
+        reply.edit_reply_markup(reply_markup=reply_markup)
+    except BadRequest as e:
+        logger.debug(f"message was not modified (chat.repost=false, toggle anonymity): {e}")
+    try_delete(context.bot, update, tg_message)
+
+
+@message_handler(
+    Filters.group & Filters.reply & reply_to_bot & Filters.text & Filters.regex(r'^\+(.+)')
+)
 def handle_reaction_reply(update: Update, context: CallbackContext):
     user = update.effective_user
     msg = update.effective_message
     reaction = context.match[1]
     reply = msg.reply_to_message
 
-    try:
-        message = Message.objects.prefetch_related().get_by_ids(reply.chat_id, reply.message_id)
-    except Message.DoesNotExist:
-        logger.debug(f"message doesn't exist. reply: {reply}")
+    message = get_msg(reply)
+    if not message:
         return
 
     if not message.chat.allow_reactions:
@@ -42,7 +62,39 @@ def handle_reaction_reply(update: Update, context: CallbackContext):
     if not button:
         msg.reply_text("Post already has too many reactions.")
         return
-    reactions = Button.objects.reactions(reply.chat_id, reply.message_id)
-    _, reply_markup = make_reply_markup_from_chat(update, context, reactions, message=message)
-    reply.edit_reply_markup(reply_markup=reply_markup)
-    try_delete(context.bot, update, msg)
+
+    update_markup(update, context, message, msg, reply)
+
+
+@message_handler(
+    Filters.group & Filters.reply & reply_to_bot & Filters.text & Filters.regex(r'^\.(.+)')
+)
+def handle_magic_reply(update: Update, context: CallbackContext):
+    user = update.effective_user
+    msg = update.effective_message
+    reply = msg.reply_to_message
+
+    _, anonymous, _, buttons = process_magic_mark(msg)
+    logger.debug(f"anonymous={anonymous}, buttons={buttons}")
+
+    if not anonymous and buttons is None:
+        logger.debug("nothing to do here")
+        return
+
+    message = get_msg(reply)
+    if not message:
+        return
+
+    if str(message.from_user.id) != str(user.id):
+        logger.debug(f"OP and replier doesn't match: {message.from_user.id} vs {user.id}")
+        return
+
+    if anonymous:
+        message.anonymous = not message.anonymous
+        message.save()
+
+    if buttons is not None:
+        message.button_set.all().delete()
+        message.set_buttons(buttons)
+
+    update_markup(update, context, message, msg, reply)

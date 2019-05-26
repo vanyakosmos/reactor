@@ -1,5 +1,4 @@
 import logging
-import regex
 
 from django.utils import timezone
 from emoji import UNICODE_EMOJI
@@ -17,6 +16,7 @@ from bot import redis
 from bot.redis import State
 from core.models import Button, Chat, Message, Reaction, MessageToPublish, UserButtons
 from .filters import StateFilter
+from .magic_marks import process_magic_mark
 from .markup import make_reply_markup_from_chat, make_reply_markup
 from .utils import (
     message_handler,
@@ -31,7 +31,6 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
-MAGIC_MARK = regex.compile(r'\.(-|\+|~|`.*`)+.*')
 
 
 def repost_message(msg: TGMessage, bot: Bot, msg_type, reply_markup):
@@ -121,59 +120,11 @@ def process_message(
         )
 
 
-def get_magic_marks(msg: TGMessage):
-    text: str = msg.text or msg.caption
-    if not text:
-        return
-    m = MAGIC_MARK.match(text)
-    if m:
-        return m.captures(1)
-
-
-def remove_magic_marks(msg: TGMessage, marks: list):
-    """Return False if text was removed and message can't be reposted."""
-    had_text = bool(msg.text)
-    text = msg.text or msg.caption
-    text = text[1:]  # remove .
-    s = sum(map(len, marks))
-    if len(text) > s:
-        text = text[s:]
-    else:
-        text = None
-    msg.text = text
-    msg.caption = text
-    return not (had_text and text is None)
-
-
-def process_magic_mark(msg: TGMessage):
-    force = 0
-    anon = False
-    skip = False
-    buttons = None
-    marks = get_magic_marks(msg)
-    if not marks:
-        return force, anon, skip, buttons
-    if not remove_magic_marks(msg, marks):
-        skip = True
-    if '-' in marks:
-        skip = True
-    force = marks.count('+')
-    if '~' in marks:
-        anon = True
-    for mark in marks:
-        if '`' in mark:
-            buttons = mark[1:-1].split()
-            break
-    return force, anon, skip, buttons
-
-
 @message_handler(Filters.group & ~Filters.reply & ~Filters.status_update)
 def handle_message(update: Update, context: CallbackContext):
     msg: TGMessage = update.effective_message
 
     force, anonymous, skip, buttons = process_magic_mark(msg)
-    if buttons:
-        buttons = clear_buttons(buttons)
     logger.debug(f"force: {force}, anonymous: {anonymous}, skip: {skip}, buttons: {buttons}")
     if skip:
         logger.debug('skipping message processing')
