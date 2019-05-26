@@ -17,7 +17,7 @@ from bot.redis import State
 from core.models import Button, Chat, Message, Reaction, MessageToPublish, UserButtons
 from .filters import StateFilter
 from .magic_marks import process_magic_mark
-from .markup import make_reply_markup_from_chat, make_reply_markup
+from .markup import make_reply_markup_from_chat, make_reactions_keyboard
 from .utils import (
     message_handler,
     try_delete,
@@ -27,7 +27,6 @@ from .utils import (
     get_user,
     get_forward_from_chat,
     clear_buttons,
-    get_reactions,
 )
 
 logger = logging.getLogger(__name__)
@@ -82,11 +81,10 @@ def process_message(
     msg: TGMessage = update.effective_message
     bot = context.bot
 
-    reactions = get_reactions(buttons) if buttons is not None else None
     chat, reply_markup = make_reply_markup_from_chat(
         update,
         context,
-        reactions,
+        buttons,
         chat=chat,
         anonymous=anonymous,
     )
@@ -230,7 +228,7 @@ def handle_create_buttons(update: Update, context: CallbackContext):
     msg.reply_text("Press 'publish' and choose chat/channel.")
     message = mtp.message_tg
     msg_type = get_message_type(message)
-    reply_markup = make_reply_markup(context.bot, get_reactions(buttons), blank=True)
+    reply_markup = make_reactions_keyboard(buttons, blank=True)
     reply_markup.inline_keyboard.append([
         InlineKeyboardButton(
             "publish",

@@ -44,7 +44,6 @@ def handle_button_callback(update: Update, context: CallbackContext):
     )
     reply_to_reaction(context.bot, query, button, reaction)
     reactions = Button.objects.reactions(**mids)
-
     _, reply_markup = make_reply_markup_from_chat(update, context, reactions, message=message)
     context.bot.edit_message_reply_markup(reply_markup=reply_markup, **mids)
 

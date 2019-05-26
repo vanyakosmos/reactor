@@ -140,18 +140,3 @@ def clear_buttons(buttons: list, emojis=False):
     if emojis and not all([b in UNICODE_EMOJI for b in buttons]):
         return
     return buttons
-
-
-def get_reactions(buttons, safe=False):
-    # if there is button then telegram will not send inline_message_id
-    if not buttons and safe:
-        return [{
-            'index': 0,
-            'text': '-',
-            'count': 0,
-        }]
-    return [{
-        'index': index,
-        'text': text,
-        'count': 0,
-    } for index, text in enumerate(buttons)]

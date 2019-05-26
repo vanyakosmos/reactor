@@ -47,7 +47,7 @@ def get_credits_from_message(message: Message):
     return data
 
 
-def make_credits_buttons(
+def make_credits_keyboard(
     from_name=None,
     from_username=None,
     forward_name=None,
@@ -56,8 +56,10 @@ def make_credits_buttons(
     forward_chat_username=None,
     forward_chat_message_id=None,
 ):
-    buttons = []
+    if not from_name:
+        return
 
+    buttons = []
     # user
     if from_username:
         from_user_button = InlineKeyboardButton(
@@ -90,50 +92,56 @@ def make_credits_buttons(
         )
         buttons.append(button)
 
-    return buttons
+    return InlineKeyboardMarkup.from_row(buttons)
 
 
-def make_vote_button(bot, inline_message_id):
-    return InlineKeyboardButton(
-        text="vote",
-        url=f'https://t.me/{bot.username}?start={inline_message_id}',
+def make_vote_keyboard(bot, inline_message_id):
+    if not inline_message_id:
+        return
+    return InlineKeyboardMarkup.from_button(
+        InlineKeyboardButton(
+            text="vote",
+            url=f'https://t.me/{bot.username}?start={inline_message_id}',
+        )
     )
 
 
-def make_reply_markup(
-    bot,
-    rates: list,
-    padding=False,
-    max_cols=5,
-    credits=None,
-    vote_payload=None,
-    blank=False,
-):
-    keys = []
+def merge_keyboards(*keyboards: InlineKeyboardMarkup):
+    """Merge keyboards by columns."""
+    ks = []
+    for keyboard in keyboards:
+        if keyboard:
+            ks.extend(keyboard.inline_keyboard)
+    return InlineKeyboardMarkup(ks)
+
+
+def gen_buttons(rates: list, blank: bool):
     for rate in rates:
-        text = rate['text']
-        count = rate['count']
+        # text = rate['text']
+        # count = rate['count']
+        if isinstance(rate, str):
+            text, count = rate, 0
+        else:
+            text, count = rate
         payload = '~' if blank else f"button:{text}"
         if count:
             text = f'{text} {count}'
-        keys.append(InlineKeyboardButton(text, callback_data=payload))
+        yield InlineKeyboardButton(text, callback_data=payload)
+
+
+def make_reactions_keyboard(rates: list, padding=False, max_cols=5, blank=False):
+    keys = list(gen_buttons(rates, blank))
 
     keyboard = []
-    if vote_payload:
-        keyboard.append([make_vote_button(bot, vote_payload)])
-    if credits:
-        keyboard.append(make_credits_buttons(**credits))
-    buttons = []
     while keys:
         line = keys[:max_cols]
-        if padding and len(line) != max_cols and len(buttons) >= 1:
+        if padding and len(line) != max_cols and len(keyboard) >= 1:
             line += [
                 InlineKeyboardButton('.', callback_data='~')
                 for _ in range(max_cols - len(line))
             ]
-        buttons.append(line)
+        keyboard.append(line)
         keys = keys[max_cols:]
-    keyboard.extend(buttons)
     return InlineKeyboardMarkup(keyboard)
 
 
@@ -151,15 +159,13 @@ def make_reply_markup_from_chat(
         else:
             chat, _ = Chat.objects.get_or_create(id=update.effective_message.chat_id)
     if reactions is None:
-        reactions = chat.reactions()
+        reactions = chat.buttons
 
     # message doesn't have chat and it wasn't provided as arg
     if not chat:
-        reply_markup = make_reply_markup(
-            context.bot,
-            reactions,
-            vote_payload=message and message.inline_message_id,
-        )
+        vote_keyboard = make_vote_keyboard(context.bot, message and message.inline_message_id)
+        reactions_keyboard = make_reactions_keyboard(reactions)
+        reply_markup = merge_keyboards(vote_keyboard, reactions_keyboard)
         return None, reply_markup
 
     if (
@@ -172,12 +178,9 @@ def make_reply_markup_from_chat(
             credits = get_credits(update)
     else:
         credits = None
-    reply_markup = make_reply_markup(
-        context.bot,
-        reactions,
-        credits=credits,
-        padding=chat.add_padding,
-        max_cols=chat.columns,
-        vote_payload=message and message.inline_message_id,
-    )
+
+    vote_keyboard = make_vote_keyboard(context.bot, message and message.inline_message_id)
+    credits_keyboard = make_credits_keyboard(**(credits or {}))
+    reactions_keyboard = make_reactions_keyboard(reactions, chat.add_padding, chat.columns)
+    reply_markup = merge_keyboards(vote_keyboard, credits_keyboard, reactions_keyboard)
     return chat, reply_markup

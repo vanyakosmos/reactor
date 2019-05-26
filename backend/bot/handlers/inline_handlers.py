@@ -16,13 +16,12 @@ from telegram.error import BadRequest
 from telegram.ext import CallbackContext
 
 from core.models import Message, MessageToPublish
-from .markup import make_reply_markup, make_reply_markup_from_chat
+from .markup import make_reactions_keyboard, make_reply_markup_from_chat
 from .utils import (
     chosen_inline_handler,
     get_user,
     inline_query_handler,
     get_message_type,
-    get_reactions,
 )
 
 logger = logging.getLogger(__name__)
@@ -48,7 +47,7 @@ def handle_publishing_options(update: Update, context: CallbackContext):
         return
     msg, buttons = msg_buttons
 
-    reply_markup = make_reply_markup(context.bot, get_reactions(buttons, safe=True))
+    reply_markup = make_reactions_keyboard(buttons or ['-'])
     msg_type = get_message_type(msg)
     config = {
         'id': str(uuid4()),
@@ -104,7 +103,7 @@ def handle_publishing(update: Update, context: CallbackContext):
     _, reply_markup = make_reply_markup_from_chat(
         update,
         context,
-        get_reactions(buttons),
+        buttons,
         message=message,
     )
     try:

@@ -95,13 +95,6 @@ class Chat(TGMixin, models.Model):
             username=self.username,
         )
 
-    def reactions(self):
-        return [{
-            'index': index,
-            'text': text,
-            'count': 0,
-        } for index, text in enumerate(self.buttons)]
-
     def __str__(self):
         return f"Chat({self.id}, {self.buttons})"
 
@@ -266,7 +259,7 @@ class Message(TGMixin, models.Model):
 class ButtonManager(models.Manager):
     def filter_by_message(self, chat_id, message_id, inline_message_id=None):
         umid = Message.get_id(chat_id, message_id, inline_message_id)
-        return self.filter(message_id=umid)
+        return self.filter(message_id=umid).order_by('index')
 
     def get_for_reaction(self, reaction, umid):
         try:
@@ -278,12 +271,8 @@ class ButtonManager(models.Manager):
                 return Button.objects.create(message_id=umid, text=reaction, index=index)
 
     def reactions(self, chat_id, message_id, inline_message_id=None):
-        return [{
-            'id': b.id,
-            'index': b.index,
-            'text': b.text,
-            'count': b.count,
-        } for b in self.filter_by_message(chat_id, message_id, inline_message_id)]
+        return [(b.text, b.count)
+                for b in self.filter_by_message(chat_id, message_id, inline_message_id)]
 
 
 class Button(models.Model):
