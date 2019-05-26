@@ -1,9 +1,11 @@
 # reactor
 
-Telegram bot that automatically add reaction buttons to messages (similar to slack/discord).
+Telegram bot that automatically add reaction buttons to messages (similar to slack/discord, but crappier).
+
+![demo](files/demo.gif)
 
 
-## Usage in group
+## Usage in groups
 
 - add bot to the group
 - give him admin rights (so it could delete messages)
@@ -12,35 +14,35 @@ Telegram bot that automatically add reaction buttons to messages (similar to sla
 - use /help /settings /edit to monitor and control bot's behaviour
 
 
-## Usage in channel
+## Usage for channels
 
 - go to private chat with bot
-- /create
+- type /create
 - send message that you would like to "reactify"
-- go to the channel and publish that message via inline interface (`@botname uuid` -> pick message)
-- press "vote" to add new reaction -> will be redirected to the private chat with bot -> send emoji/sticker
+- press "publish" -> pick channel -> pick message
+- press "vote" to add new reaction -> user will be redirected to the private chat with bot -> send emoji/sticker to bot to add reaction
 
 
 ## Magic Marks
 
-(groups only)
+(group chats only)
 
 Apply special action by adding prefix to message's text/caption.
 
 ```
-# force bot to ignore message
+# force bot to ignore message (if chat settings allow this type of message to be automatically reposted)
 .-text
 
-# force bot to repost message
+# force bot to repost message (if bot was told to ignore this type of message)
 .+text
 
 # force bot to repost message on his behalf
 .++text
  
-# hide credits
+# hide credits (don't show who originally posted that message)
 .~text
 
-# show "a, b" buttons instead of default ones in that chat
+# show "👍 👎" buttons instead of default ones in that chat
 .``text
 .`👍 👎`text
 
@@ -49,6 +51,7 @@ Apply special action by adding prefix to message's text/caption.
 ```
 
 Some magic marks also work with replies (if you are the original poster of that message)
+
 ```
 # toggle credits
 .~
@@ -57,6 +60,28 @@ Some magic marks also work with replies (if you are the original poster of that 
 .``
 .`👍 👎`
 ```
+
+
+## Deployment
+
+### "Prod"
+
+- Create `.envs/.production` dir and copy content of `.envs/.examples`
+- Specify telegram bot token in `app.env`
+- Run: `docker-compose -f docker-compose.yml up`
+
+### Dev
+
+- 1-2 from prod steps
+- Create `.envs/.local` dir and copy content of `.envs/.examples`
+- Adjust evn vars for local development
+- Create `docker-compose.override.yml` and copy into it content of `docker-compose.override.example.yml`
+- Run: `docker-compose up`
+- Run migrations (in prod they run automatically after server start, but in dev it might be useful not to run migrations while you are still experimenting with them): 
+    - `docker-compose exec bot python manage.py migrate`
+- Misc:
+    - `make start` - run bot
+    - `make restart_bot` - restart bot container w/o waiting for threads to exit
 
 
 ## TODOs
