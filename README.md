@@ -5,6 +5,17 @@ Telegram bot that automatically add reaction buttons to messages (similar to sla
 ![demo](files/demo.gif)
 
 
+## Features
+
+- publish messages similar to [@like](https://t.me/like) but also allow to other users to add custom reactions
+- repost chat messages on behalf of bot with added reaction buttons
+- chat-wise settings:
+  - list of predefined permanent buttons
+  - types of messages to repost automatically
+  - and more
+- [magic marks](#magic-marks)
+
+
 ## Usage in groups
 
 - add bot to the group
@@ -100,6 +111,7 @@ Some magic marks also work with replies (if you are the original poster of that 
   - [x] reply to the original message instead of reposting it
   - [x] allow to disable reactions
   - [x] add emoji enforcing
+  - [ ] max number of buttons to show
 - [x] add forced processing/anonymity/ignore/custom buttons via magic marks (text/caption prefixes)
 - [x] reactions for channels via inline interface
 - [x] add setting for inline posting
@@ -108,6 +120,8 @@ Some magic marks also work with replies (if you are the original poster of that 
 
 #### misc:
 
+- add Post model that bind to buttons, several Messages could point to the post. This will allow to add reaction for one post from multiple chats/channels
+- keep adding new buttons but show only the most popular
 - restructure django settings
 - refactor this mess
 - add clean up cronjob (remove old messages>buttons>reactions)
