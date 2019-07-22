@@ -109,3 +109,4 @@ venv.bak/
 !.envs/.examples
 playground.py
 docker-compose.override.yml
+staticfiles

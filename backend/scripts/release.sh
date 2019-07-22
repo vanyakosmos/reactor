@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 
-python manage.py migrate
-python manage.py collectstatic --noinput -v 0
+SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
+python ${SCRIPTPATH}/../manage.py migrate
+python ${SCRIPTPATH}/../manage.py collectstatic --noinput -v 0

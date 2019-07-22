@@ -1,3 +1,3 @@
-release: ./backend/scripts/release.sh
+release: ./backend/scripts/release.sh backend
 web: ./backend/scripts/run.sh
-worker: ./backend/manager.py runbot
+worker: ./backend/manage.py runbot
