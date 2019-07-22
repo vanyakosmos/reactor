@@ -17,6 +17,8 @@ redis = "^3.2"
 python-telegram-bot = "=12.0.0b1"
 emoji = "^0.5.2"
 regex = "^2019.4"
+dj-database-url = "^0.5.0"
+gunicorn = "^19.9"
 
 [tool.poetry.dev-dependencies]
 

@@ -2,14 +2,12 @@
 
 set -e
 
+port=${PORT:-8000}
+
 if [[ ${1:-prod} == 'dev' ]]; then
     echo "running DEV server..."
-    exec python manage.py runserver 0.0.0.0:8000
+    exec python manage.py runserver 0.0.0.0:${port}
 else
     echo "running PROD server..."
-    python manage.py migrate
-    python manage.py collectstatic --noinput
-    # todo
-    # exec gunicorn fba.wsgi --workers 4 --bind 0.0.0.0:8000
-    exec python manage.py runserver 0.0.0.0:8000
+    exec gunicorn reactor.wsgi --bind 0.0.0.0:${port}
 fi
