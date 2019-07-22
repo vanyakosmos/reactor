@@ -16,7 +16,7 @@ SECRET_KEY = '*0pa7wdfy4)^2ffkcudih@4563-hy=+#34+!1s1r6ddx)3&uw@'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split()
 
 # Application definition
 
