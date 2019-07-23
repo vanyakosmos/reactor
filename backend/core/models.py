@@ -44,6 +44,14 @@ class User(TGMixin, models.Model):
     objects = UserManager()
 
     @property
+    def full_name(self):
+        if self.first_name and self.last_name:
+            return f"{self.first_name} {self.last_name}"
+        if self.username:
+            return self.username
+        return self.first_name
+
+    @property
     def tg(self):
         return TGUser(
             id=self.id,
@@ -57,6 +65,9 @@ class User(TGMixin, models.Model):
     def url(self):
         if self.username:
             return f'https://t.me/{self.username}'
+
+    def __str__(self):
+        return f"User({self.id}, {self.full_name})"
 
 
 def default_buttons():
@@ -96,7 +107,8 @@ class Chat(TGMixin, models.Model):
         )
 
     def __str__(self):
-        return f"Chat({self.id}, {self.buttons})"
+        buttons = '/'.join(self.buttons)
+        return f"Chat({self.id}, {buttons})"
 
 
 class MessageQuerySet(models.QuerySet):
