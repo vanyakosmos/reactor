@@ -117,14 +117,15 @@ def merge_keyboards(*keyboards: InlineKeyboardMarkup):
 
 def gen_buttons(rates: list, blank: bool):
     for rate in rates:
-        # text = rate['text']
-        # count = rate['count']
         if isinstance(rate, str):
             text, count = rate, 0
         else:
             text, count = rate
         payload = '~' if blank else f"button:{text}"
         if count:
+            if count > 1000:
+                count /= 1000
+                count = f'{count:.1f}k'
             text = f'{text} {count}'
         yield InlineKeyboardButton(text, callback_data=payload)
 
