@@ -122,7 +122,6 @@ Some magic marks also work with replies (if you are the original poster of that 
 
 - add Post model that bind to buttons, several Messages could point to the post. This will allow to add reaction for one post from multiple chats/channels
 - keep adding new buttons but show only the most popular
-- restructure django settings
 - refactor this mess
 - add clean up cronjob (remove old messages>buttons>reactions)
 - add automatic backups

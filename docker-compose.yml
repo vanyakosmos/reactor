@@ -31,6 +31,8 @@ services:
   bot:
     <<: *app
     command: ["./manage.py", "runbot"]
+    environment:
+      - DJANGO_SETTINGS_MODULE=reactor.settings.bot
     depends_on:
       - db
       - redis

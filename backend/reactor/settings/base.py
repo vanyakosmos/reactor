@@ -1,11 +1,13 @@
 import os
+from pathlib import Path
 
 import dj_database_url
 
+# noinspection PyUnresolvedReferences
 from .config import *
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = str(Path(os.path.abspath(__file__)).parents[2])
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
