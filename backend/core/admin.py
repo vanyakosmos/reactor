@@ -26,6 +26,7 @@ class ChatAdmin(admin.ModelAdmin):
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
     list_display = ('id', 'chat', 'date', 'from_user', 'get_buttons')
+    ordering = ('-date',)
 
     def get_buttons(self, msg: Message):
         return '/'.join([b.text for b in msg.button_set.all()])
