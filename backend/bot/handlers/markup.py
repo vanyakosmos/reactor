@@ -100,7 +100,7 @@ def make_vote_keyboard(bot, inline_message_id):
         return
     return InlineKeyboardMarkup.from_button(
         InlineKeyboardButton(
-            text="vote",
+            text="add reaction",
             url=f'https://t.me/{bot.username}?start={inline_message_id}',
         )
     )

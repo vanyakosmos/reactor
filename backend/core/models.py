@@ -273,13 +273,13 @@ class ButtonManager(models.Manager):
         umid = Message.get_id(chat_id, message_id, inline_message_id)
         return self.filter(message_id=umid).order_by('index')
 
-    def get_for_reaction(self, reaction, umid):
+    def get_for_reaction(self, reaction, umid, limit=64):
         try:
             return Button.objects.get(message_id=umid, text=reaction)
         except Button.DoesNotExist:
             b = self.filter(message_id=umid).last()
             index = b.index + 1 if b else 0
-            if index < 64:
+            if index < limit:
                 return Button.objects.create(message_id=umid, text=reaction, index=index)
 
     def reactions(self, chat_id, message_id, inline_message_id=None):
@@ -340,6 +340,7 @@ class ReactionManager(models.Manager):
         umid = Message.get_id(chat_id, message_id, inline_message_id)
         button = Button.objects.get_for_reaction(button_text, umid)
         if not button:
+            # too many buttons
             return None, None
         try:
             r = Reaction.objects.get(
