@@ -95,9 +95,7 @@ Some magic marks also work with replies (if you are the original poster of that 
     - `make restart_bot` - restart bot container w/o waiting for threads to exit
 
 
-## TODOs
-
-#### features:
+## [TODOs](https://github.com/vanyakosmos/reactor/projects/1)
 
 - [x] add basic bot functionality: messages reposting, reply reactions, chat default buttons
 - [x] add reactions to albums without reposting each photo (simple reply with buttons)
@@ -118,13 +116,3 @@ Some magic marks also work with replies (if you are the original poster of that 
 - [ ] gather and store chat statistics
 - [ ] add web UI for chat administration and statistics
 
-#### misc:
-
-- add Post model that bind to buttons, several Messages could point to the post. This will allow to add reaction for one post from multiple chats/channels
-- keep adding new buttons but show only the most popular
-- refactor this mess
-- add clean up cronjob (remove old messages>buttons>reactions)
-- add automatic backups
-- add some tests
-- add CI
-- apply reactions in bulk on high load
