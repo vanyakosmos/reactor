@@ -1,4 +1,5 @@
 import logging
+from collections import OrderedDict
 
 from django.utils import timezone
 from emoji import UNICODE_EMOJI
@@ -192,6 +193,7 @@ def handle_create_start(update: Update, context: CallbackContext):
         '👍 👎',
         '✅ ❌',
     ]
+    buttons = list(OrderedDict.fromkeys(buttons))  # remove duplicated buttons
     buttons = buttons[:3]
     msg.reply_text(
         "Now specify buttons.",
