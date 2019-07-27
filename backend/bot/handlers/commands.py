@@ -5,7 +5,7 @@ from telegram.ext import CallbackContext, Filters
 
 from bot import redis
 from bot.redis import State
-from core.models import Chat
+from core.models import Chat, Message
 from .edit_command import command_edit
 from .consts import CHAT_FIELDS
 from .utils import command, get_chat
@@ -79,11 +79,24 @@ def command_start(update: Update, context: CallbackContext):
     """Initiate reaction."""
     if not context.args:
         return
+
     user: TGUser = update.effective_user
     msg: TGMessage = update.effective_message
+
+    message_id = context.args[0]
+    try:
+        Message.objects.get(id=message_id)
+    except Message.DoesNotExist:
+        logger.debug(f"Message {message_id} doesn't exist.")
+        msg.reply_text(
+            "Message you want to react to is invalid "
+            "(either too old or magically disappeared from DB)."
+        )
+        return
+
     msg.reply_text('Now send me your reaction. It can be a single emoji or a sticker.')
     redis.set_state(user.id, State.reaction)
-    redis.set_key(user.id, 'message_id', context.args[0])
+    redis.set_key(user.id, 'message_id', message_id)
 
 
 @command('create', filters=Filters.private)

@@ -206,10 +206,16 @@ class Message(TGMixin, models.Model):
 
     @property
     def ids(self):
+        if self.inline_message_id:
+            return {
+                'chat_id': None,
+                'message_id': None,
+                'inline_message_id': self.inline_message_id,
+            }
         return {
             'chat_id': self.chat_id,
             'message_id': self.message_id,
-            'inline_message_id': self.inline_message_id,
+            'inline_message_id': None,
         }
 
     @property
