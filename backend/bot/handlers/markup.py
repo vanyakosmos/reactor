@@ -115,23 +115,28 @@ def merge_keyboards(*keyboards: InlineKeyboardMarkup):
     return InlineKeyboardMarkup(ks)
 
 
-def gen_buttons(rates: list, blank: bool):
-    for rate in rates:
+def gen_buttons(rates: list, blank: bool, sort=False):
+    for i, rate in enumerate(rates):
         if isinstance(rate, str):
-            text, count = rate, 0
-        else:
-            text, count = rate
+            rates[i] = (rate, 0)
+
+    if sort:
+        rates.sort(key=lambda e: -e[1])
+
+    result = []
+    for text, count in rates:
         payload = '~' if blank else f"button:{text}"
-        if count:
-            if count > 1000:
-                count /= 1000
-                count = f'{count:.1f}k'
+        if count > 1000:
+            count /= 1000
+            count = f'{count:.1f}k'
+        if count > 0:
             text = f'{text} {count}'
-        yield InlineKeyboardButton(text, callback_data=payload)
+        result.append(InlineKeyboardButton(text, callback_data=payload))
+    return result
 
 
-def make_reactions_keyboard(rates: list, padding=False, max_cols=5, blank=False):
-    keys = list(gen_buttons(rates, blank))
+def make_reactions_keyboard(rates: list, padding=False, max_cols=5, blank=False, sort=False):
+    keys = gen_buttons(rates, blank, sort)
 
     keyboard = []
     while keys:
@@ -163,6 +168,7 @@ def make_reply_markup_from_chat(
         reactions = chat.buttons
 
     # message doesn't have chat and it wasn't provided as arg
+    # which means that we are creating keyboard for inline post
     if not chat:
         vote_keyboard = make_vote_keyboard(context.bot, message and message.inline_message_id)
         reactions_keyboard = make_reactions_keyboard(reactions)
