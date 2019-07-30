@@ -1,9 +1,9 @@
 import uuid
 
 from django.contrib.postgres.fields import ArrayField, JSONField
-from django.db import models, IntegrityError
+from django.db import IntegrityError, models
 from django.utils import timezone
-from telegram import Chat as TGChat, Message as TGMessage, User as TGUser
+from telegram import Chat as TGChat, Message as TGMessage, Update, User as TGUser
 
 from bot.consts import MAX_NUM_BUTTONS
 from .fields import CharField
@@ -23,7 +23,7 @@ class TGMixin:
 
 
 class UserManager(models.Manager):
-    def create_from_tg_user(self, u: TGUser):
+    def from_tg_user(self, u: TGUser) -> 'User':
         user, _ = User.objects.update_or_create(
             id=u.id,
             defaults={
@@ -33,6 +33,10 @@ class UserManager(models.Manager):
             },
         )
         return user
+
+    def from_update(self, update: Update):
+        u = update.effective_user
+        return self.from_tg_user(u)
 
 
 class User(TGMixin, models.Model):
@@ -71,6 +75,23 @@ class User(TGMixin, models.Model):
         return f"User({self.id}, {self.full_name})"
 
 
+class ChatManager(models.Manager):
+    def from_tg_chat(self, tg_chat: TGChat) -> 'Chat':
+        if tg_chat.last_name:
+            fallback_name = f'{tg_chat.first_name} {tg_chat.last_name}'
+        else:
+            fallback_name = tg_chat.first_name
+        chat, _ = Chat.objects.update_or_create(
+            id=tg_chat.id,
+            defaults={
+                'type': tg_chat.type,
+                'username': tg_chat.username,
+                'title': tg_chat.title or fallback_name,
+            },
+        )
+        return chat
+
+
 def default_buttons():
     return ['👍', '👎']
 
@@ -93,6 +114,8 @@ class Chat(TGMixin, models.Model):
     force_emojis = models.BooleanField(default=False)
     repost = models.BooleanField(default=True)
 
+    objects = ChatManager()
+
     @property
     def url(self):
         if self.username:
@@ -108,22 +131,26 @@ class Chat(TGMixin, models.Model):
         )
 
     def __str__(self):
+        name = self.title or self.username
         buttons = '/'.join(self.buttons)
-        return f"Chat({self.id}, {buttons})"
+        return f"Chat({self.id}, {name!r}, {buttons})"
 
 
 class MessageQuerySet(models.QuerySet):
-    def get_by_ids(self, chat_id, message_id, inline_message_id=None):
+    def get_by_ids(self, chat_id, message_id, inline_message_id=None) -> 'Message':
         umid = Message.get_id(chat_id, message_id, inline_message_id)
         return Message.objects.get(id=umid)
 
-    def create_from_inline(self, inline_message_id, buttons, **kwargs):
+    def create_from_inline(
+        self, inline_message_id, from_user: User, buttons: list, **kwargs
+    ) -> 'Message':
         """
         Create message based on inline_message_id.
         Populate buttons.
         """
         msg = self.create(
             id=inline_message_id,
+            from_user=from_user,
             date=timezone.now(),
             inline_message_id=inline_message_id,
             **kwargs,
@@ -131,18 +158,17 @@ class MessageQuerySet(models.QuerySet):
         msg.set_buttons(buttons)
         return msg
 
-    def create_from_tg_ids(self, chat_id, message_id, buttons=None, **kwargs):
+    def create_from_tg_ids(
+        self, chat_id, message_id, date, from_user: User, buttons=None, **kwargs
+    ) -> 'Message':
         """
         Create message based on chat ID and original telegram message ID.
         Populate buttons.
         """
         umid = Message.get_id(chat_id, message_id)
-        msg = self.create(id=umid, chat_id=chat_id, **kwargs)
+        msg = self.create(id=umid, chat_id=chat_id, date=date, from_user=from_user, **kwargs)
         buttons = msg.chat.buttons if buttons is None else buttons
-        Button.objects.bulk_create([
-            Button(message=msg, index=index, text=text, permanent=True)
-            for index, text in enumerate(buttons)
-        ])
+        msg.set_buttons(buttons)
         return msg
 
 
@@ -265,6 +291,10 @@ class Message(TGMixin, models.Model):
             if base_url:
                 return f'{base_url}/{self.forward_from_message_id}'
 
+    @property
+    def is_inline(self):
+        return self.id == self.inline_message_id
+
     def set_buttons(self, buttons, permanent=True):
         Button.objects.bulk_create([
             Button(message=self, index=index, text=text, permanent=permanent)
@@ -272,7 +302,7 @@ class Message(TGMixin, models.Model):
         ])
 
     def __str__(self):
-        return f"Message({self.id})"
+        return f"Message({self.ids})"
 
 
 class ButtonManager(models.Manager):
@@ -331,7 +361,7 @@ class ReactionManager(models.Manager):
                 button=button,
             )
         except IntegrityError:
-            User.objects.create_from_tg_user(user)
+            User.objects.from_tg_user(user)
             if not ran:
                 return self.safe_create(user, umid, button, ran=True)
             raise

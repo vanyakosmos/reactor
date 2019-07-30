@@ -16,9 +16,9 @@ from telegram.error import BadRequest
 from telegram.ext import CallbackContext
 
 from bot.markup import make_reactions_keyboard, make_reply_markup_from_chat
-from bot.utils import get_message_type, get_user
+from bot.utils import get_message_type
 from bot.wrapper import chosen_inline_handler, inline_query_handler
-from core.models import Message, MessageToPublish
+from core.models import Message, MessageToPublish, User
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +93,8 @@ def handle_publishing(update: Update, context: CallbackContext):
 
     message = Message.objects.create_from_inline(
         inline_message_id=inline_id,
+        from_user=User.objects.from_update(update),
         buttons=buttons,
-        from_user=get_user(update),
     )
     _, reply_markup = make_reply_markup_from_chat(
         update,

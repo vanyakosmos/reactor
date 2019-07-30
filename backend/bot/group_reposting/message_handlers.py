@@ -7,16 +7,14 @@ from telegram.ext import CallbackContext, Filters
 from bot.magic_marks import process_magic_mark
 from bot.markup import make_reply_markup_from_chat
 from bot.utils import (
-    get_chat_from_tg_chat,
     get_forward_from,
     get_forward_from_chat,
     get_message_type,
-    get_user,
     repost_message,
     try_delete,
 )
 from bot.wrapper import message_handler
-from core.models import Chat, Message
+from core.models import Chat, Message, User
 
 logger = logging.getLogger(__name__)
 
@@ -59,11 +57,11 @@ def process_message(
         Message.objects.create_from_tg_ids(
             sent_msg.chat_id,
             sent_msg.message_id,
+            date=timezone.make_aware(msg.date),
             buttons=buttons,
             anonymous=anonymous,
-            date=timezone.make_aware(msg.date),
             original_message_id=msg.message_id,
-            from_user=get_user(update),
+            from_user=User.objects.from_update(update),
             forward_from=get_forward_from(msg),
             forward_from_chat=get_forward_from_chat(msg),
             forward_from_message_id=msg.forward_from_message_id,
@@ -80,7 +78,7 @@ def handle_message(update: Update, context: CallbackContext):
         logger.debug('skipping message processing')
         return
 
-    chat = get_chat_from_tg_chat(update.effective_chat)
+    chat = Chat.objects.from_tg_chat(update.effective_chat)
     allowed_types = chat.allowed_types
     allow_forward = 'forward' in allowed_types
 

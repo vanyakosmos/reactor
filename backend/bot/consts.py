@@ -28,3 +28,4 @@ CHAT_FIELDS = {
     'repost': "if true then repost messages on bot's behalf, otherwise just reply to messages",
 }
 MAX_NUM_BUTTONS = 25
+MAX_BUTTON_LEN = 20

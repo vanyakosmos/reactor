@@ -1,8 +1,8 @@
 from django.utils.datastructures import OrderedSet
 from emoji import UNICODE_EMOJI
-from telegram import Bot, Chat as TGChat, Message as TGMessage, Update, User as TGUser
+from telegram import Bot, Message as TGMessage, Update, User as TGUser
 
-from bot.consts import MESSAGE_TYPES
+from bot.consts import MESSAGE_TYPES, MAX_BUTTON_LEN
 from bot.mwt import MWT
 from bot.redis import save_media_group
 from core.models import Chat, User
@@ -47,56 +47,19 @@ def get_message_type(msg: TGMessage):
             return field
 
 
-def get_chat_from_tg_chat(tg_chat: TGChat) -> Chat:
-    if tg_chat.last_name:
-        fallback_name = f'{tg_chat.first_name} {tg_chat.last_name}'
-    else:
-        fallback_name = tg_chat.first_name
-    chat, _ = Chat.objects.update_or_create(
-        id=tg_chat.id,
-        defaults={
-            'type': tg_chat.type,
-            'username': tg_chat.username,
-            'title': tg_chat.title or fallback_name,
-        },
-    )
-    return chat
-
-
-def get_user(update: Update):
-    u: TGUser = update.effective_user
-    user, _ = User.objects.update_or_create(
-        id=u.id,
-        defaults={
-            'username': u.username,
-            'first_name': u.first_name,
-            'last_name': u.last_name,
-        },
-    )
-    return user
-
-
 def get_forward_from(msg: TGMessage):
     if msg.forward_from:
         u: TGUser = msg.forward_from
-        forward, _ = User.objects.update_or_create(
-            id=u.id,
-            defaults={
-                'username': u.username,
-                'first_name': u.first_name,
-                'last_name': u.last_name,
-            },
-        )
-        return forward
+        return User.objects.from_tg_user(u)
 
 
 def get_forward_from_chat(msg: TGMessage):
     if msg.forward_from_chat:
-        return get_chat_from_tg_chat(msg.forward_from_chat)
+        return Chat.objects.from_tg_chat(msg.forward_from_chat)
 
 
 def clear_buttons(buttons: list, emojis=False):
-    buttons = [b for b in OrderedSet(buttons) if len(b) < 20]
+    buttons = [b for b in OrderedSet(buttons) if len(b) < MAX_BUTTON_LEN]
     if emojis and not all([b in UNICODE_EMOJI for b in buttons]):
         return
     return buttons

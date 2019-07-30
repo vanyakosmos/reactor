@@ -8,12 +8,7 @@ from telegram.ext import (
     MessageHandler,
 )
 
-from core.models import Chat
 from .utils import user_is_admin
-
-
-def get_chat(update) -> Chat:
-    return Chat.objects.get_or_create(id=str(update.effective_chat.id))[0]
 
 
 class HandlerWrapper:
