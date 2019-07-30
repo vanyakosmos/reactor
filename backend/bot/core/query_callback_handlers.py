@@ -4,8 +4,8 @@ from telegram import Update
 from telegram.ext import CallbackContext, run_async
 
 from core.models import Button, Reaction, Message
-from .markup import make_reply_markup_from_chat
-from .utils import callback_query_handler
+from bot.markup import make_reply_markup_from_chat
+from bot.wrapper import callback_query_handler
 
 logger = logging.getLogger(__name__)
 
@@ -50,5 +50,5 @@ def handle_button_callback(update: Update, context: CallbackContext):
 
 @callback_query_handler(pattern="^~$")
 @run_async
-def handle_empty_callback(update: Update, context: CallbackContext):
+def handle_empty_callback(update: Update, _: CallbackContext):
     update.callback_query.answer(cache_time=10)

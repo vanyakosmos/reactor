@@ -1,9 +1,10 @@
 from telegram import Update
 from telegram.ext import CallbackContext
 
+from bot.consts import CHAT_FIELDS, MESSAGE_TYPES
+from bot.utils import clear_buttons, get_chat
+from bot.wrapper import command
 from core.models import Chat
-from .consts import CHAT_FIELDS, MESSAGE_TYPES
-from .utils import command, get_chat, clear_buttons
 
 
 def change_buttons(update: Update, chat: Chat, values: list):

@@ -16,6 +16,14 @@ class ReplyToBot(BaseFilter):
 reply_to_bot = ReplyToBot()
 
 
+class HasArguments(BaseFilter):
+    def filter(self, message: TGMessage):
+        return len(message.text.split()) > 1
+
+
+has_arguments = HasArguments()
+
+
 class StateFilter:
     class _StateFilter(BaseFilter):
         def __init__(self, state):

@@ -1,6 +1,6 @@
 import pytest
 
-from bot.handlers.commands import format_chat_settings
+from bot.core.commands import format_chat_settings
 from core.models import Chat
 
 

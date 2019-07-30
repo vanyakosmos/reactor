@@ -1,56 +1,75 @@
 import logging
+from typing import List
 
 from django.conf import settings
-from telegram.ext import Updater, Handler
-
-from .handlers import (
-    commands,
-    handle_error,
-    handle_new_member,
-    inline_handlers,
-    message_handlers,
-    query_callback_handlers,
-    replies_handlers,
+from telegram.ext import (
+    Updater,
+    CommandHandler,
+    CallbackQueryHandler,
+    MessageHandler,
+    InlineQueryHandler,
+    ChosenInlineResultHandler,
 )
+
+from .core import handle_error
+from . import channel_publishing, channel_reaction, core, group_reaction, group_reposting
+from .wrapper import HandlerWrapper
 
 logger = logging.getLogger(__name__)
 
 
-def extract_by_handler(data_holder):
+def extract_handlers(module):
     res = []
-    for key, value in vars(data_holder).items():
-        handler = getattr(value, 'handler', None)
-        if handler and isinstance(handler, Handler):
+    for key, value in vars(module).items():
+        if isinstance(value, HandlerWrapper):
             res.append(value)
     return res
 
 
-def inspect_handlers(handlers: list):
+def inspect_handlers(handlers: List[HandlerWrapper]):
     text = 'Handlers:\n'
     text += '\n'.join([
-        f"  > {i + 1:2d}. {handler.__name__:30s} < {handler.__module__}"
+        f"  > {i + 1:2d}. {handler.module:40s} > {handler.name}"
         for i, handler in enumerate(handlers)
     ])
     logger.debug(text)
+
+
+def sort_by_type(handlers: List[HandlerWrapper]):
+    """
+    0 commands
+    1 query callback handlers
+    2 message handlers
+    3 inline results handlers
+    4 inline respond handlers
+    """
+    priority = dict(
+        map(
+            lambda e: (e[1], e[0]),
+            enumerate([
+                CommandHandler,
+                CallbackQueryHandler,
+                MessageHandler,
+                InlineQueryHandler,
+                ChosenInlineResultHandler,
+            ])
+        )
+    )
+    handlers.sort(key=lambda h: priority[h.handler_class])
 
 
 def run():
     updater = Updater(settings.TG_BOT_TOKEN, use_context=True)
     dp = updater.dispatcher
 
-    handlers = [
-        *extract_by_handler(commands),
-        *extract_by_handler(query_callback_handlers),
-        *extract_by_handler(replies_handlers),
-        *extract_by_handler(message_handlers),
-        *extract_by_handler(inline_handlers),
-        handle_new_member,
-    ]
+    handlers = []
+    for module in [channel_publishing, channel_reaction, core, group_reaction, group_reposting]:
+        handlers.extend(extract_handlers(module))
+
+    sort_by_type(handlers)
     inspect_handlers(handlers)
-    for handler in handlers:
-        if hasattr(handler, 'handler'):
-            handler = getattr(handler, 'handler')
-        dp.add_handler(handler)
+    for wrapper in handlers:
+        dp.add_handler(wrapper.handler)
     dp.add_error_handler(handle_error)
 
     logger.info('start polling...')

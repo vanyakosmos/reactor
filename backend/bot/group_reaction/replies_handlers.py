@@ -1,15 +1,16 @@
 import logging
 
-from telegram import Update, Message as TGMessage
+from emoji import UNICODE_EMOJI
+from telegram import Message as TGMessage, Update
 from telegram.error import BadRequest
 from telegram.ext import CallbackContext, Filters
 
-from bot.handlers.magic_marks import process_magic_mark
-from core.models import Button, Reaction, Message
-from .filters import reply_to_bot
-from .markup import make_reply_markup_from_chat
-from .utils import message_handler, try_delete
-from emoji import UNICODE_EMOJI
+from bot.filters import reply_to_bot
+from bot.magic_marks import process_magic_mark
+from bot.markup import make_reply_markup_from_chat
+from bot.utils import try_delete
+from bot.wrapper import message_handler
+from core.models import Button, Message, Reaction
 
 logger = logging.getLogger(__name__)
 

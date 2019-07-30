@@ -4,8 +4,8 @@ from uuid import uuid4
 from django.core.exceptions import ValidationError
 from telegram import (
     InlineQueryResultArticle,
-    InlineQueryResultCachedPhoto,
     InlineQueryResultCachedMpeg4Gif,
+    InlineQueryResultCachedPhoto,
     InlineQueryResultCachedVideo,
     InputTextMessageContent,
     ParseMode,
@@ -15,14 +15,10 @@ from telegram import (
 from telegram.error import BadRequest
 from telegram.ext import CallbackContext
 
+from bot.markup import make_reactions_keyboard, make_reply_markup_from_chat
+from bot.utils import get_message_type, get_user
+from bot.wrapper import chosen_inline_handler, inline_query_handler
 from core.models import Message, MessageToPublish
-from .markup import make_reactions_keyboard, make_reply_markup_from_chat
-from .utils import (
-    chosen_inline_handler,
-    get_user,
-    inline_query_handler,
-    get_message_type,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -35,17 +31,17 @@ def get_msg_and_buttons(user: TGUser, query):
         return msg, buttons
     except (MessageToPublish.DoesNotExist, ValidationError):
         logger.debug(f"message to publish doesn't exist. user_id: {user.id}, query: {query}")
-        return
+        raise ValueError
 
 
 @inline_query_handler()
-def handle_publishing_options(update: Update, context: CallbackContext):
+def handle_publishing_options(update: Update, _: CallbackContext):
     user: TGUser = update.effective_user
 
-    msg_buttons = get_msg_and_buttons(user, update.inline_query.query)
-    if not msg_buttons:
+    try:
+        msg, buttons = get_msg_and_buttons(user, update.inline_query.query)
+    except ValueError:
         return
-    msg, buttons = msg_buttons
 
     reply_markup = make_reactions_keyboard(buttons or ['-'])
     msg_type = get_message_type(msg)
@@ -90,10 +86,10 @@ def handle_publishing(update: Update, context: CallbackContext):
         logger.exception("Invalid inline query.")
         return
 
-    msg_buttons = get_msg_and_buttons(user, res.query)
-    if not msg_buttons:
+    try:
+        msg, buttons = get_msg_and_buttons(user, res.query)
+    except ValueError:
         return
-    msg, buttons = msg_buttons
 
     message = Message.objects.create_from_inline(
         inline_message_id=inline_id,

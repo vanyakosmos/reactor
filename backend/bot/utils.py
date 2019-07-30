@@ -1,18 +1,8 @@
-import functools
-import logging
-
 from django.utils.datastructures import OrderedSet
 from emoji import UNICODE_EMOJI
-from telegram import Update, Message as TGMessage, Chat as TGChat, User as TGUser
-from telegram.ext import (
-    CommandHandler,
-    MessageHandler,
-    CallbackQueryHandler,
-    InlineQueryHandler,
-    ChosenInlineResultHandler,
-)
+from telegram import Bot, Chat as TGChat, Message as TGMessage, Update, User as TGUser
 
-from bot.handlers.consts import MESSAGE_TYPES
+from bot.consts import MESSAGE_TYPES
 from bot.mwt import MWT
 from bot.redis import save_media_group
 from core.models import Chat, User
@@ -20,36 +10,6 @@ from core.models import Chat, User
 
 def get_chat(update) -> Chat:
     return Chat.objects.get_or_create(id=str(update.effective_chat.id))[0]
-
-
-def handler_decorator_factory(handler_class):
-    def handle_decorator(*args, admin_required=False, **kwargs):
-        def wrapper(f):
-            @functools.wraps(f)
-            def dec(update, context):
-                logger = logging.getLogger(dec.__module__)
-                logger.debug(f"☎️  CALLING: {dec.__name__:30s}")
-                logger.debug(f"📑\n{update}")
-                if admin_required:
-                    if user_is_admin(context.bot, update):
-                        return f(update, context)
-                    update.message.reply_text("Only admin can use this command.")
-                else:
-                    return f(update, context)
-
-            dec.handler = handler_class(*args, callback=dec, **kwargs)
-            return dec
-
-        return wrapper
-
-    return handle_decorator
-
-
-command = handler_decorator_factory(CommandHandler)
-message_handler = handler_decorator_factory(MessageHandler)
-callback_query_handler = handler_decorator_factory(CallbackQueryHandler)
-inline_query_handler = handler_decorator_factory(InlineQueryHandler)
-chosen_inline_handler = handler_decorator_factory(ChosenInlineResultHandler)
 
 
 @MWT(timeout=60)
@@ -140,3 +100,40 @@ def clear_buttons(buttons: list, emojis=False):
     if emojis and not all([b in UNICODE_EMOJI for b in buttons]):
         return
     return buttons
+
+
+def repost_message(msg: TGMessage, bot: Bot, msg_type, reply_markup):
+    config = {
+        'chat_id': msg.chat_id,
+        'text': msg.text_html,
+        'caption': msg.caption_html,
+        'disable_notification': True,
+        'parse_mode': 'HTML',
+        'reply_markup': reply_markup,
+        # files
+        'photo': msg.photo and msg.photo[0].file_id,
+        'video': msg.video and msg.video.file_id,
+        'animation': msg.animation and msg.animation.file_id,
+        'document': msg.document and msg.document.file_id,
+        'audio': msg.audio and msg.audio.file_id,
+        'voice': msg.voice and msg.voice.file_id,
+        'video_note': msg.video_note and msg.video_note.file_id,
+        'sticker': msg.sticker and msg.sticker.file_id,
+    }
+    sender_map = {
+        'text': bot.send_message,
+        'link': bot.send_message,
+        'photo': bot.send_photo,
+        'video': bot.send_video,
+        'animation': bot.send_animation,
+        'document': bot.send_document,
+        'audio': bot.send_audio,
+        'voice': bot.send_voice,
+        'video_note': bot.send_video_note,
+        'sticker': bot.send_sticker,
+    }
+    if msg_type in sender_map:
+        sent_msg = sender_map[msg_type](**config)
+    else:
+        sent_msg = None
+    return sent_msg

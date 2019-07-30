@@ -1,7 +1,7 @@
 import regex
 from telegram import Message as TGMessage
 
-from bot.handlers.utils import clear_buttons
+from bot.utils import clear_buttons
 
 MAGIC_MARK = regex.compile(r'^\.(-|\+|~|`.*`)+.*$')
 

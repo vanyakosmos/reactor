@@ -1,14 +1,14 @@
 import logging
 
-from telegram import Message as TGMessage, ParseMode, Update, User as TGUser
+from telegram import ParseMode, Update
 from telegram.ext import CallbackContext, Filters
 
-from bot import redis
-from bot.redis import State
-from core.models import Chat, Message
+from bot.channel_publishing.commands import command_create
+from bot.consts import CHAT_FIELDS
+from bot.utils import get_chat
+from bot.wrapper import command
+from core.models import Chat
 from .edit_command import command_edit
-from .consts import CHAT_FIELDS
-from .utils import command, get_chat
 
 logger = logging.getLogger(__name__)
 
@@ -70,39 +70,5 @@ def command_settings(update: Update, context: CallbackContext):
 
 
 @command(('settings', 'sets'), filters=Filters.private)
-def command_settings_private(update: Update, context: CallbackContext):
+def command_settings_private(update: Update, _: CallbackContext):
     update.message.reply_text("Can show settings only in group chat.")
-
-
-@command('start', filters=Filters.private, pass_args=True)
-def command_start(update: Update, context: CallbackContext):
-    """Initiate reaction."""
-    if not context.args:
-        return
-
-    user: TGUser = update.effective_user
-    msg: TGMessage = update.effective_message
-
-    message_id = context.args[0]
-    try:
-        Message.objects.get(id=message_id)
-    except Message.DoesNotExist:
-        logger.debug(f"Message {message_id} doesn't exist.")
-        msg.reply_text(
-            "Message you want to react to is invalid "
-            "(either too old or magically disappeared from DB)."
-        )
-        return
-
-    msg.reply_text('Now send me your reaction. It can be a single emoji or a sticker.')
-    redis.set_state(user.id, State.reaction)
-    redis.set_key(user.id, 'message_id', message_id)
-
-
-@command('create', filters=Filters.private)
-def command_create(update: Update, context: CallbackContext):
-    """Create new post."""
-    user: TGUser = update.effective_user
-    msg: TGMessage = update.effective_message
-    msg.reply_text('Send message to which you want me to add reactions.')
-    redis.set_state(user.id, State.create_start)
