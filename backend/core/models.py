@@ -5,6 +5,7 @@ from django.db import models, IntegrityError
 from django.utils import timezone
 from telegram import Chat as TGChat, Message as TGMessage, User as TGUser
 
+from bot.consts import MAX_NUM_BUTTONS
 from .fields import CharField
 
 __all__ = ['Chat', 'Message', 'Button', 'Reaction', 'User', 'UserButtons', 'MessageToPublish']
@@ -279,13 +280,13 @@ class ButtonManager(models.Manager):
         umid = Message.get_id(chat_id, message_id, inline_message_id)
         return self.filter(message_id=umid).order_by('index')
 
-    def get_for_reaction(self, reaction, umid, limit=64):
+    def get_for_reaction(self, reaction, umid):
         try:
             return Button.objects.get(message_id=umid, text=reaction)
         except Button.DoesNotExist:
             b = self.filter(message_id=umid).last()
             index = b.index + 1 if b else 0
-            if index < limit:
+            if index < MAX_NUM_BUTTONS:
                 return Button.objects.create(message_id=umid, text=reaction, index=index)
 
     def reactions(self, chat_id, message_id, inline_message_id=None):

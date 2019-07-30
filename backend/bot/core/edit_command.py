@@ -1,14 +1,14 @@
 from telegram import Update
 from telegram.ext import CallbackContext
 
-from bot.consts import CHAT_FIELDS, MESSAGE_TYPES
+from bot.consts import CHAT_FIELDS, MESSAGE_TYPES, MAX_NUM_BUTTONS
 from bot.utils import clear_buttons, get_chat
 from bot.wrapper import command
 from core.models import Chat
 
 
 def change_buttons(update: Update, chat: Chat, values: list):
-    if len(values) > 64:
+    if len(values) > MAX_NUM_BUTTONS:
         update.message.reply_text("Too many buttons.")
         return
     bs = clear_buttons(values)

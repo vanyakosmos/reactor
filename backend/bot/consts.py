@@ -27,3 +27,4 @@ CHAT_FIELDS = {
     'force_emojis': "allow to use only emojis as reaction",
     'repost': "if true then repost messages on bot's behalf, otherwise just reply to messages",
 }
+MAX_NUM_BUTTONS = 25
