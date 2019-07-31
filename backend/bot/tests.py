@@ -94,6 +94,17 @@ class TestMarkup:
         assert len(kb[0]) == 1
         assert len(kb[1]) == 2
 
+    def test_merge_keyboards_vertical_limit(self):
+        kb = merge_keyboards(
+            make_credits_keyboard(**self.user),
+            make_reactions_keyboard(['1', '2'], padding=2),
+        )
+        markup = merge_keyboards(kb, kb, kb, kb, kb).inline_keyboard
+        assert len(markup) == 10
+
+        markup = merge_keyboards(kb, kb, kb, kb, kb, kb).inline_keyboard
+        assert len(markup) == 10
+
     def test_gen_buttons(self):
         buttons = gen_buttons(['a', ('b', 2)], blank=False)
         buttons = [(b.text, b.callback_data) for b in buttons]

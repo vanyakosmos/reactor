@@ -116,6 +116,7 @@ def merge_keyboards(*keyboards: Optional[InlineKeyboardMarkup]):
             ks.extend(keyboard.inline_keyboard)
     if not ks:
         raise ValueError("no keyboards to merge")
+    ks = ks[:10]  # telegram limit is 10x10
     return InlineKeyboardMarkup(ks)
 
 

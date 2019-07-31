@@ -56,6 +56,12 @@ def change_columns(update: Update, chat: Chat, values: list):
     chat.columns = option
     chat.save()
     update.message.reply_text(f"New number of buttons per row: {option}.")
+    if option in (1, 2):
+        update.message.reply_text(
+            "Telegram limit for buttons is 10x10, "
+            "everything beyond this limit will be truncated. "
+            "Ex: if columns=1 then max number of buttons will be 9 (10 - credits row)."
+        )
 
 
 def change_add_padding(update: Update, chat: Chat, values: list):
