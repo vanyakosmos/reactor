@@ -3,21 +3,11 @@ from pathlib import Path
 
 import dj_database_url
 
-# noinspection PyUnresolvedReferences
 from .config import *
 
-# Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = str(Path(os.path.abspath(__file__)).parents[2])
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '*0pa7wdfy4)^2ffkcudih@4563-hy=+#34+!1s1r6ddx)3&uw@'
-
-# SECURITY WARNING: don't run with debug turned on in production!
+SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = True
-
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split()
 
 # Application definition

@@ -21,6 +21,8 @@ services:
   app:
     <<: *app
     command: ["./scripts/run.sh", "dev"]
+    environment:
+      - DJANGO_SETTINGS_MODULE=reactor.settings.base
     ports:
       - 8000:8000
 
