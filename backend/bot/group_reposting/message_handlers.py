@@ -72,7 +72,7 @@ def handle_message(update: Update, context: CallbackContext):
         logger.debug('skipping message processing')
         return
 
-    chat = Chat.objects.from_tg_chat(update.effective_chat)
+    chat = Chat.objects.from_update(update)
     allowed_types = chat.allowed_types
     allow_forward = 'forward' in allowed_types
 

@@ -2,6 +2,7 @@ import pytest
 
 from bot.consts import MAX_BUTTON_LEN
 from bot.core.commands import format_chat_settings
+from bot.magic_marks import get_magic_marks, clear_magic_marks, restore_text, process_magic_mark
 from bot.markup import (
     make_credits_keyboard,
     merge_keyboards,
@@ -251,3 +252,114 @@ class TestMarkupWithDB:
         assert len(kb) == 2
         assert len(kb[0]) == 2
         assert [b.text for b in kb[1]] == ['a', 'b', 'c']
+
+
+@pytest.mark.usefixtures('create_tg_message')
+class TestMagicMarks:
+    def test_get_magic_marks_bad_text(self):
+        ms = get_magic_marks('')
+        assert ms is None
+
+        ms = get_magic_marks('foo')
+        assert ms is None
+
+        ms = get_magic_marks('.foo')
+        assert ms is None
+
+        ms = get_magic_marks('.foo+~``')
+        assert ms is None
+
+    def test_get_magic_marks(self):
+        ms = get_magic_marks('.+')
+        assert ms == ['+']
+
+        ms = get_magic_marks('.~')
+        assert ms == ['~']
+
+        ms = get_magic_marks('.`a b`')
+        assert ms == ['`a b`']
+
+    def test_get_magic_marks_multiple(self):
+        ms = get_magic_marks('.+~`a b c`')
+        assert ms == ['+', '~', '`a b c`']
+
+    def test_clear_magic_marks(self):
+        text = clear_magic_marks('.+', ['+'])
+        assert text is None
+
+        text = clear_magic_marks('.+foo', ['+'])
+        assert text == 'foo'
+
+        text = clear_magic_marks('.+foo~', ['+'])
+        assert text == 'foo~'
+
+        text = clear_magic_marks('.+~foo', ['+', '~'])
+        assert text == 'foo'
+
+        text = clear_magic_marks('.+~`a b`foo', ['+', '~', '`a b`'])
+        assert text == 'foo'
+
+    def test_restore_text(self):
+        msg = self.create_tg_message(text='.+foo')
+        assert restore_text(msg, 'foo')
+
+        msg = self.create_tg_message(text='.+')
+        assert not restore_text(msg, None)
+
+        msg = self.create_tg_message(caption='.+foo')
+        assert restore_text(msg, 'foo')
+
+        msg = self.create_tg_message(caption='.+')
+        assert restore_text(msg, None)
+
+    def process(self, **kwargs):
+        msg = self.create_tg_message(**kwargs)
+        return process_magic_mark(msg)
+
+    def test_process_magic_mark(self):
+        # message might have needed media type
+        force, anon, skip, buttons = self.process(text='foo')
+        assert not skip
+
+        force, anon, skip, buttons = self.process(caption='.+foo')
+        assert not skip
+
+        force, anon, skip, buttons = self.process(text='.foo')
+        assert not skip
+
+        force, anon, skip, buttons = self.process(text='.foo+')
+        assert not skip
+
+        # can't repost empty message
+        force, anon, skip, buttons = self.process(text='.+`a b`')
+        assert skip
+
+        force, anon, skip, buttons = self.process(text='.-foo')
+        assert skip
+
+        force, anon, skip, buttons = self.process(text='.~foo')
+        assert anon
+
+        force, anon, skip, buttons = self.process(text='.+foo')
+        assert force == 1
+
+        force, anon, skip, buttons = self.process(text='.++foo')
+        assert force == 2
+
+        force, anon, skip, buttons = self.process(text='.``foo')
+        assert buttons == []
+
+        force, anon, skip, buttons = self.process(text='.`a b`foo')
+        assert buttons == ['a', 'b']
+
+        force, anon, skip, buttons = self.process(text='.+~++`a`foo')
+        assert not skip
+        assert anon
+        assert force == 3
+        assert buttons == ['a']
+
+        force, anon, skip, buttons = self.process(text='.+`a`foo')
+        assert not skip
+        assert not anon
+        assert force == 1
+        assert buttons == ['a']

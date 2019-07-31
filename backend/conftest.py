@@ -17,6 +17,16 @@ from telegram import (
 from core.models import Button, Chat, Message, User
 
 
+def decode_tg_object(obj: Union[TelegramObject, dict, None, int], default=None):
+    if obj is None:
+        return default
+    if isinstance(obj, int):
+        return None
+    if isinstance(obj, dict):
+        return obj
+    return obj.to_dict()
+
+
 def append_to_cls(request: FixtureRequest, func, name=None):
     name = name or func.__name__.strip('_')
     setattr(request.cls, name, staticmethod(func))
@@ -69,6 +79,21 @@ def create_chat(request: FixtureRequest) -> Callable:
 
 
 @pytest.fixture(scope='class')
+def create_tg_chat(request: FixtureRequest) -> Callable:
+    def _create_tg_chat(**kwargs):
+        data = {
+            'id': -100000000000,
+            'type': TGChat.SUPERGROUP,
+            'title': 'test chat',
+            'username': 'testchat',
+            **kwargs,
+        }
+        return TGChat.de_json(data, bot=None)
+
+    return append_to_cls(request, _create_tg_chat)
+
+
+@pytest.fixture(scope='class')
 def create_message(request: FixtureRequest, create_user) -> Callable:
     def _create_message(buttons=None, **kwargs):
         # if chat is not specified - assume inline message
@@ -93,6 +118,26 @@ def create_message(request: FixtureRequest, create_user) -> Callable:
 
 
 @pytest.fixture(scope='class')
+def create_tg_message(
+    request: FixtureRequest, create_bot, create_tg_user, create_tg_chat
+) -> Callable:
+    def _create_tg_message(bot=None, user=None, chat=None, **kwargs):
+        bot = bot or create_bot()
+        user = decode_tg_object(user, create_tg_user().to_dict())
+        chat = decode_tg_object(chat, create_tg_chat().to_dict())
+        data = {
+            'message_id': 1,
+            'date': 1564646464,
+            'from': user,
+            'chat': chat,
+            **kwargs,
+        }
+        return TGMessage.de_json(data, bot)
+
+    return append_to_cls(request, _create_tg_message)
+
+
+@pytest.fixture(scope='class')
 def create_button(request: FixtureRequest, create_message) -> Callable:
     def _create_button(emoji=False, **kwargs):
         fields = {
@@ -114,16 +159,14 @@ def create_bot(request: FixtureRequest) -> Callable:
     return append_to_cls(request, _create_bot)
 
 
-def decode_tg_object(obj: Union[TelegramObject, dict, None], default=None):
-    if obj is None:
-        return default
-    if isinstance(obj, dict):
-        return obj
-    return obj.to_dict()
-
-
 @pytest.fixture(scope='class')
-def create_update(request: FixtureRequest, create_bot) -> Callable:
+def create_update(
+    request: FixtureRequest,
+    create_bot,
+    create_tg_user,
+    create_tg_chat,
+    create_tg_message,
+) -> Callable:
     def _create_update(
         bot=None,
         inline_feedback=False,
@@ -133,43 +176,9 @@ def create_update(request: FixtureRequest, create_bot) -> Callable:
         message: TGMessage = None,
     ):
         bot = bot or create_bot()
-        user = decode_tg_object(
-            user,
-            {
-                'id': 00000000,
-                'first_name': 'NAME',
-                'is_bot': False,
-                'username': 'username',
-                'language_code': 'en'
-            },
-        )
-        chat = decode_tg_object(
-            chat,
-            {
-                'id': -100000000000,
-                'type': 'supergroup',
-                'title': 'test chat',
-                'username': 'testchat'
-            },
-        )
-        message = decode_tg_object(
-            message, {
-                'message_id': 1,
-                'date': 1564646464,
-                'chat': chat,
-                'text': 'fds',
-                'entities': [],
-                'caption_entities': [],
-                'photo': [],
-                'new_chat_members': [],
-                'new_chat_photo': [],
-                'delete_chat_photo': False,
-                'group_chat_created': False,
-                'supergroup_chat_created': False,
-                'channel_chat_created': False,
-                'from': user
-            }
-        )
+        user = decode_tg_object(user, create_tg_user().to_dict())
+        chat = decode_tg_object(chat, create_tg_chat().to_dict())
+        message = decode_tg_object(message, create_tg_message(user=user, chat=chat).to_dict())
         if inline_feedback:
             data = {
                 'update_id': 486565656,

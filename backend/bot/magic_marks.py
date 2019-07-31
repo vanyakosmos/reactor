@@ -1,3 +1,5 @@
+from typing import Optional
+
 import regex
 from telegram import Message as TGMessage
 
@@ -14,35 +16,37 @@ def get_magic_marks(text: str):
         return m.captures(1)
 
 
-def get_magic_marks_from_msg(msg: TGMessage):
-    text: str = msg.text or msg.caption
-    return get_magic_marks(text)
-
-
-def remove_magic_marks(msg: TGMessage, marks: list):
-    """Return False if text was removed and message can't be reposted."""
-    had_text = bool(msg.text)
-    text = msg.text or msg.caption
+def clear_magic_marks(text: str, marks: list):
     text = text[1:]  # remove .
     s = sum(map(len, marks))
     if len(text) > s:
         text = text[s:]
     else:
         text = None
+    return text
+
+
+def restore_text(msg: TGMessage, text: Optional[str]):
+    """Return False if text was removed and message can't be reposted."""
+    had_text = bool(msg.text)
     msg.text = text
     msg.caption = text
     return not (had_text and text is None)
 
 
 def process_magic_mark(msg: TGMessage):
-    force = 0
-    anon = False
-    skip = False
-    buttons = None
-    marks = get_magic_marks_from_msg(msg)
+    force = 0  # force message repost
+    anon = False  # hide credits
+    skip = False  # skip message
+    buttons = None  # override buttons on message
+
+    text: str = msg.text or msg.caption
+    marks = get_magic_marks(text)
     if not marks:
         return force, anon, skip, buttons
-    if not remove_magic_marks(msg, marks):
+
+    text_wo_marks = clear_magic_marks(text, marks)
+    if not restore_text(msg, text_wo_marks):
         skip = True
     if '-' in marks:
         skip = True
