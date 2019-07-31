@@ -1,0 +1,21 @@
+version: "3.7"
+
+services:
+  db:
+    image: postgres:11.1
+    hostname: db
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    env_file: .envs/.travis/postgres.env
+
+  app:
+    build: ./backend
+    image: reactor_app
+    env_file:
+      - .envs/.travis/app.env
+      - .envs/.travis/postgres.env
+    depends_on:
+      - db
+
+volumes:
+  dbdata:
