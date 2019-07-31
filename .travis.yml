@@ -1,18 +1,13 @@
-language: python
-
-python:
-  - "3.6"
+language: minimal
 
 services:
-  - postgresql
+  - docker
 
-install:
-  - cd backend
-  - pip install poetry coverage
-  - poetry install
-  - cd ..
+before_script:
+  - docker-compose build app
 
 script:
-  - pytest -vv backend
+  - docker-compose run --rm app pytest -vv -n 3 --cov=.
 
-after_success: coverage report
+after_script:
+  - docker-compose down

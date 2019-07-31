@@ -20,6 +20,8 @@ regex = "^2019.4"
 dj-database-url = "^0.5.0"
 gunicorn = "^19.9"
 whitenoise = "^4.1"
+pytest-xdist = "^1.29"
+pytest-cov = "^2.7"
 
 [tool.poetry.dev-dependencies]
 
