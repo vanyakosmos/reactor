@@ -352,7 +352,7 @@ class Button(models.Model):
 
 
 class ReactionManager(models.Manager):
-    def safe_create(self, user, umid, button, ran=False):
+    def safe_create(self, user: TGUser, umid, button: Button, rerun=True):
         try:
             return Reaction.objects.create(
                 user_id=user.id,
@@ -361,8 +361,8 @@ class ReactionManager(models.Manager):
             )
         except IntegrityError:
             User.objects.from_tg_user(user)
-            if not ran:
-                return self.safe_create(user, umid, button, ran=True)
+            if rerun:
+                return self.safe_create(user, umid, button, rerun=False)
             raise
 
     def react(self, user: TGUser, chat_id, message_id, inline_message_id, button_text):

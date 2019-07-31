@@ -1,4 +1,8 @@
 import logging
+from os import getenv
+
+LOGGING_LEVEL = getenv('LOGGING_LEVEL', 'INFO')
+LOGGING_LEVEL_ROOT = getenv('LOGGING_LEVEL_ROOT', 'WARNING')
 
 
 def add_color(string: str, color, just=0):
@@ -29,7 +33,7 @@ LOGGING = {
     },
     'handlers': {
         'console': {
-            'level': 'DEBUG',
+            'level': LOGGING_LEVEL,
             'class': 'logging.StreamHandler',
             'formatter': 'verbose'
         },
@@ -37,17 +41,17 @@ LOGGING = {
     'loggers': {
         'core': {
             'handlers': ['console'],
-            'level': 'DEBUG',
+            'level': LOGGING_LEVEL,
             'propagate': False,
         },
         'bot': {
             'handlers': ['console'],
-            'level': 'DEBUG',
+            'level': LOGGING_LEVEL,
             'propagate': False,
         },
         '': {
             'handlers': ['console'],
-            'level': 'INFO',
+            'level': LOGGING_LEVEL_ROOT,
             'propagate': False,
         },
     }

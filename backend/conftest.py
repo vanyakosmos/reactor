@@ -4,7 +4,7 @@ from typing import Callable
 import pytest
 from _pytest.fixtures import FixtureRequest
 from django.utils import timezone
-from telegram import Chat as TGChat
+from telegram import Chat as TGChat, User as TGUser
 
 from core.models import Button, Chat, Message, User
 
@@ -34,6 +34,20 @@ def create_user(request: FixtureRequest) -> Callable:
 
 
 @pytest.fixture(scope='class')
+def create_tg_user(request: FixtureRequest) -> Callable:
+    def _create_tg_user(**kwargs):
+        fields = {
+            'id': get_id(),
+            'first_name': 'user',
+            'is_bot': False,
+            **kwargs,
+        }
+        return TGUser(**fields)
+
+    return append_to_cls(request, _create_tg_user)
+
+
+@pytest.fixture(scope='class')
 def create_chat(request: FixtureRequest) -> Callable:
     def _create_chat(**kwargs):
         fields = {
@@ -48,7 +62,7 @@ def create_chat(request: FixtureRequest) -> Callable:
 
 @pytest.fixture(scope='class')
 def create_message(request: FixtureRequest, create_user) -> Callable:
-    def _create_message(**kwargs):
+    def _create_message(buttons=None, **kwargs):
         # if chat is not specified - assume inline message
         inline = not bool(kwargs.get('chat') or kwargs.get('chat_id'))
         msg_id = get_id()
@@ -62,7 +76,10 @@ def create_message(request: FixtureRequest, create_user) -> Callable:
             'inline_message_id': msg_id if inline else None,
             **kwargs,
         }
-        return Message.objects.create(**fields)
+        msg = Message.objects.create(**fields)
+        if buttons:
+            msg.set_buttons(buttons)
+        return msg
 
     return append_to_cls(request, _create_message)
 
