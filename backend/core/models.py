@@ -6,7 +6,7 @@ from django.db import IntegrityError, models
 from django.utils import timezone
 from telegram import Chat as TGChat, Message as TGMessage, Update, User as TGUser
 
-from bot.consts import MAX_NUM_BUTTONS
+from bot.consts import MAX_NUM_BUTTONS, MAX_USER_BUTTONS_HINTS
 from .fields import CharField
 
 __all__ = ['Chat', 'Message', 'Button', 'Reaction', 'User', 'UserButtons', 'MessageToPublish']
@@ -442,16 +442,17 @@ class UserButtons(models.Model):
     created = models.DateTimeField(auto_now_add=True)
 
     @classmethod
-    def delete_old(cls, user_id, limit=3):
+    def delete_old(cls, user_id):
         ubs = UserButtons.objects.filter(user_id=user_id)
-        ubs = ubs[:limit].values_list('id', flat=True)
+        ubs = ubs[:MAX_USER_BUTTONS_HINTS].values_list('id', flat=True)
         UserButtons.objects.exclude(pk__in=list(ubs)).delete()
 
     @classmethod
-    def create(cls, user_id, buttons, limit=3):
+    def create(cls, user_id, buttons):
+        buttons = buttons[:MAX_NUM_BUTTONS]
         if not UserButtons.objects.filter(user_id=user_id, buttons=buttons).exists():
             ub = UserButtons.objects.create(user_id=user_id, buttons=buttons)
-            cls.delete_old(user_id, limit)
+            cls.delete_old(user_id)
             return ub
 
     @classmethod

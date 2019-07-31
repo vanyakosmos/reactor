@@ -2,8 +2,8 @@ import pytest
 from django.utils import timezone
 from telegram import Chat as TGChat, User as TGUser
 
-from bot.consts import MAX_NUM_BUTTONS
-from core.models import User, Chat, Message, Button, Reaction
+from bot.consts import MAX_NUM_BUTTONS, MAX_USER_BUTTONS_HINTS
+from core.models import User, Chat, Message, Button, Reaction, UserButtons
 
 
 @pytest.mark.django_db
@@ -134,13 +134,7 @@ class TestButtonModel:
         assert reactions == [('a', 10)]
 
 
-@pytest.mark.usefixtures(
-    'create_user',
-    'create_tg_user',
-    'create_chat',
-    'create_message',
-    'create_button',
-)
+@pytest.mark.usefixtures('create_user', 'create_tg_user', 'create_message', 'create_button')
 @pytest.mark.django_db
 class TestReactionModel:
     def test_safe_create_with_user(self):
@@ -204,3 +198,40 @@ class TestReactionModel:
         buttons = Button.objects.values_list('text', 'count').order_by('index')
         assert list(buttons) == [('a', 2), ('b', 1)]
         assert Reaction.objects.count() == 3
+
+
+@pytest.mark.usefixtures('create_user')
+@pytest.mark.django_db
+class TestUserButtonsModel:
+    def test_create_two(self):
+        user = self.create_user()
+        UserButtons.create(user.id, ['a', 'b'])
+        assert UserButtons.objects.count() == 1
+        UserButtons.create(user.id, ['a', 'c'])
+        assert UserButtons.objects.count() == 2
+
+    def test_create_same(self):
+        user = self.create_user()
+        UserButtons.create(user.id, ['a', 'b'])
+        assert UserButtons.objects.count() == 1
+        UserButtons.create(user.id, ['a', 'b'])
+        assert UserButtons.objects.count() == 1
+
+    def test_create_too_many(self):
+        user = self.create_user()
+        for i in range(MAX_USER_BUTTONS_HINTS):
+            UserButtons.create(user.id, [str(i)])
+            assert UserButtons.objects.count() == i + 1
+
+        assert UserButtons.objects.count() == MAX_USER_BUTTONS_HINTS
+        UserButtons.create(user.id, ['new'])
+        assert UserButtons.objects.count() == MAX_USER_BUTTONS_HINTS
+        assert UserButtons.objects.filter(user=user, buttons__exact=['new']).exists()
+
+    def test_buttons_list(self):
+        user = self.create_user()
+        UserButtons.create(user.id, ['a', 'b'])
+        UserButtons.create(user.id, ['c', 'd'])
+
+        # -created order
+        assert UserButtons.buttons_list(user.id) == ['c d', 'a b']
