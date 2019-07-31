@@ -1,0 +1,16 @@
+language: python
+
+python:
+  - "3.6"
+
+services:
+  - postgresql
+
+install:
+  - pip install -r requirements.txt
+  - pip install coverage
+
+script:
+  - cd backend && pytest -vv
+
+after_success: coverage report
