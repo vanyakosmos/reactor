@@ -1,4 +1,5 @@
 import uuid
+from typing import Tuple, List
 
 from django.contrib.postgres.fields import ArrayField, JSONField
 from django.db import IntegrityError, models
@@ -302,14 +303,11 @@ class Message(TGMixin, models.Model):
         ])
 
     def __str__(self):
-        return f"Message({self.ids})"
+        ids = ', '.join(map(lambda e: f'{e[0]}={e[1]}', self.ids.items()))
+        return f"Message({self.id}, {ids})"
 
 
 class ButtonManager(models.Manager):
-    def filter_by_message(self, chat_id, message_id, inline_message_id=None):
-        umid = Message.get_id(chat_id, message_id, inline_message_id)
-        return self.filter(message_id=umid).order_by('index')
-
     def get_for_reaction(self, reaction, umid):
         try:
             return Button.objects.get(message_id=umid, text=reaction)
@@ -319,9 +317,10 @@ class ButtonManager(models.Manager):
             if index < MAX_NUM_BUTTONS:
                 return Button.objects.create(message_id=umid, text=reaction, index=index)
 
-    def reactions(self, chat_id, message_id, inline_message_id=None):
-        return [(b.text, b.count)
-                for b in self.filter_by_message(chat_id, message_id, inline_message_id)]
+    def reactions(self, chat_id, message_id, inline_message_id=None) -> List[Tuple[str, int]]:
+        umid = Message.get_id(chat_id, message_id, inline_message_id)
+        buttons = self.filter(message_id=umid).order_by('index')
+        return list(buttons.values_list('text', 'count'))
 
 
 class Button(models.Model):
@@ -340,7 +339,7 @@ class Button(models.Model):
     def dec(self):
         if self.count == 1 and not self.permanent:
             self.delete()
-        else:
+        elif self.count >= 1:
             self.count -= 1
             self.save()
 

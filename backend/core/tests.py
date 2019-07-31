@@ -2,6 +2,7 @@ import pytest
 from django.utils import timezone
 from telegram import Chat as TGChat, Message as TGMessage, User as TGUser
 
+from bot.consts import MAX_NUM_BUTTONS
 from core.models import *
 
 
@@ -62,3 +63,72 @@ class TestMessageModel:
         msg = Message.objects.create_from_tg_ids(chat.id, '2222', timezone.now(), user)
         assert chat == msg.chat
         assert msg.id == f'{chat.id}_2222'
+
+
+@pytest.mark.usefixtures('create_chat', 'create_message', 'create_button')
+@pytest.mark.django_db
+class TestButtonModel:
+    def test_inc(self):
+        b = self.create_button()
+        assert b.count == 0
+        b.inc()
+        assert b.count == 1
+
+    def test_dec(self):
+        b = self.create_button(count=2)
+        assert b.count == 2
+        b.dec()
+        assert b.count == 1
+        b.dec()
+        with pytest.raises(Button.DoesNotExist):
+            b.refresh_from_db()
+
+    def test_dec_permanent(self):
+        b = self.create_button(count=2, permanent=True)
+        assert b.count == 2
+        b.dec()
+        assert b.count == 1
+        b.dec()
+        assert b.count == 0
+        b.dec()
+        assert b.count == 0
+
+    def test_get_for_reaction(self):
+        assert MAX_NUM_BUTTONS > 1
+
+        msg = self.create_message()
+        # create and get the same button twice
+        b0 = Button.objects.get_for_reaction('a', msg.id)
+        b1 = Button.objects.get_for_reaction('a', msg.id)
+        assert b0 == b1
+        assert b1.index == 0 and b1.text == 'a'
+
+        # create next button
+        b2 = Button.objects.get_for_reaction('b', msg.id)
+        assert b2.index == 1 and b2.text == 'b'
+
+    def test_get_for_reaction_of_limit(self):
+        msg = self.create_message()
+        self.create_button(message=msg, text='a', index=MAX_NUM_BUTTONS)
+        b1 = Button.objects.get_for_reaction('b', msg.id)
+        assert b1 is None
+
+    def test_no_reactions(self):
+        msg: Message = self.create_message()
+        reactions = Button.objects.reactions(**msg.ids)
+        assert len(reactions) == 0
+
+    def test_reactions_inline_msg(self):
+        msg: Message = self.create_message()
+        self.create_button(message=msg, text='a', index=1)
+        self.create_button(message=msg, text='b', index=0, count=5)
+        reactions = Button.objects.reactions(**msg.ids)
+        # sorted by index
+        assert reactions == [('b', 5), ('a', 0)]
+
+    def test_reactions(self):
+        chat = self.create_chat()
+        msg: Message = self.create_message(chat=chat)
+        self.create_button(message=msg, text='a', count=10)
+        reactions = Button.objects.reactions(**msg.ids)
+        assert reactions == [('a', 10)]
