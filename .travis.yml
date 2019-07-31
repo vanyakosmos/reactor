@@ -7,10 +7,12 @@ services:
   - postgresql
 
 install:
+  - cd backend
   - pip install poetry coverage
-  - cd backend && poetry install
+  - poetry install
+  - cd ..
 
 script:
-  - cd backend && pytest -vv
+  - pytest -vv backend
 
 after_success: coverage report
