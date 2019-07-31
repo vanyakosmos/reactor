@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.ext import CallbackContext
 
 from bot.consts import CHAT_FIELDS, MESSAGE_TYPES, MAX_NUM_BUTTONS
-from bot.utils import clear_buttons, get_chat
+from bot.utils import clear_buttons
 from bot.wrapper import command
 from core.models import Chat
 
@@ -122,7 +122,7 @@ def command_edit(update: Update, context: CallbackContext):
     field, *values = context.args
     if field not in CHAT_FIELDS:
         return
-    chat = get_chat(update)
+    chat = Chat.objects.from_update(update)
     change_mapper = {
         'buttons': change_buttons,
         'show_credits': change_show_credits,

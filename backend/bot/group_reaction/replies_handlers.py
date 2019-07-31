@@ -7,10 +7,10 @@ from telegram.ext import CallbackContext, Filters
 
 from bot.filters import reply_to_bot
 from bot.magic_marks import process_magic_mark
-from bot.markup import make_reply_markup_from_chat
+from bot.markup import make_reply_markup
 from bot.utils import try_delete
 from bot.wrapper import message_handler
-from core.models import Button, Message, Reaction
+from core.models import Message, Reaction
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +23,7 @@ def get_msg(reply: TGMessage):
 
 
 def update_markup(update, context, message, tg_message, reply):
-    reactions = Button.objects.reactions(reply.chat_id, reply.message_id)
-    _, reply_markup = make_reply_markup_from_chat(update, context, reactions, message=message)
+    _, reply_markup = make_reply_markup(update, context.bot, message=message)
     try:
         reply.edit_reply_markup(reply_markup=reply_markup)
     except BadRequest as e:

@@ -8,10 +8,6 @@ from bot.redis import save_media_group
 from core.models import Chat, User
 
 
-def get_chat(update) -> Chat:
-    return Chat.objects.get_or_create(id=str(update.effective_chat.id))[0]
-
-
 @MWT(timeout=60)
 def get_admin_ids(bot, chat_id):
     """Returns a set of admin IDs for a given chat. Results are cached for 1 minute."""
@@ -59,7 +55,7 @@ def get_forward_from_chat(msg: TGMessage):
 
 
 def clear_buttons(buttons: list, emojis=False):
-    buttons = [b for b in OrderedSet(buttons) if len(b) < MAX_BUTTON_LEN]
+    buttons = [b for b in OrderedSet(buttons) if len(b) <= MAX_BUTTON_LEN]
     if emojis and not all([b in UNICODE_EMOJI for b in buttons]):
         return
     return buttons

@@ -1,6 +1,8 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from typing import Optional, Tuple
 
-from core.models import Chat, Message
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update, Bot
+
+from core.models import Chat, Message, Button
 
 
 def get_credits(update: Update):
@@ -106,12 +108,14 @@ def make_vote_keyboard(bot, inline_message_id):
     )
 
 
-def merge_keyboards(*keyboards: InlineKeyboardMarkup):
+def merge_keyboards(*keyboards: Optional[InlineKeyboardMarkup]):
     """Merge keyboards by columns."""
     ks = []
     for keyboard in keyboards:
         if keyboard:
             ks.extend(keyboard.inline_keyboard)
+    if not ks:
+        raise ValueError("no keyboards to merge")
     return InlineKeyboardMarkup(ks)
 
 
@@ -126,51 +130,59 @@ def gen_buttons(rates: list, blank: bool, sort=False):
     result = []
     for text, count in rates:
         payload = '~' if blank else f"button:{text}"
+        count_text = str(count)
         if count > 1000:
-            count /= 1000
-            count = f'{count:.1f}k'
+            if count % 1000 >= 100:
+                count_text = f'{count / 1000:.1f}k'
+            else:
+                count_text = f'{count // 1000}k'
         if count > 0:
-            text = f'{text} {count}'
+            text = f'{text} {count_text}'
         result.append(InlineKeyboardButton(text, callback_data=payload))
     return result
 
 
 def make_reactions_keyboard(rates: list, padding=False, max_cols=5, blank=False, sort=False):
-    keys = gen_buttons(rates, blank, sort)
+    buttons = gen_buttons(rates, blank, sort)
 
     keyboard = []
-    while keys:
-        line = keys[:max_cols]
+    while buttons:
+        line = buttons[:max_cols]
         if padding and len(line) != max_cols and len(keyboard) >= 1:
             line += [
                 InlineKeyboardButton('.', callback_data='~')
                 for _ in range(max_cols - len(line))
             ]
         keyboard.append(line)
-        keys = keys[max_cols:]
+        buttons = buttons[max_cols:]
     return InlineKeyboardMarkup(keyboard)
 
 
-def make_reply_markup_from_chat(
-    update,
-    context,
-    reactions=None,
-    chat=None,
-    message=None,
+def make_reply_markup(
+    update: Update,
+    bot: Bot,
+    reactions: list = None,
+    chat: Chat = None,
+    message: Message = None,
     anonymous=False,
-):
+) -> Tuple[Optional[Chat], InlineKeyboardMarkup]:
     if not chat:
         if message:
             chat = message.chat
         else:
             chat, _ = Chat.objects.get_or_create(id=update.effective_message.chat_id)
     if reactions is None:
-        reactions = chat.buttons
+        if message:
+            reactions = Button.objects.reactions(**message.ids)
+        elif chat:
+            reactions = chat.buttons
+        else:
+            raise ValueError("can't determine reactions")
 
     # message doesn't have chat and it wasn't provided as arg
     # which means that we are creating keyboard for inline post
     if not chat:
-        vote_keyboard = make_vote_keyboard(context.bot, message and message.inline_message_id)
+        vote_keyboard = make_vote_keyboard(bot, message and message.inline_message_id)
         reactions_keyboard = make_reactions_keyboard(reactions)
         reply_markup = merge_keyboards(vote_keyboard, reactions_keyboard)
         return None, reply_markup
@@ -184,10 +196,10 @@ def make_reply_markup_from_chat(
         else:
             credits = get_credits(update)
     else:
-        credits = None
+        credits = {}
 
-    vote_keyboard = make_vote_keyboard(context.bot, message and message.inline_message_id)
-    credits_keyboard = make_credits_keyboard(**(credits or {}))
+    vote_keyboard = make_vote_keyboard(bot, message and message.inline_message_id)
+    credits_keyboard = make_credits_keyboard(**credits)
     reactions_keyboard = make_reactions_keyboard(reactions, chat.add_padding, chat.columns)
     reply_markup = merge_keyboards(vote_keyboard, credits_keyboard, reactions_keyboard)
     return chat, reply_markup

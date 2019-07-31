@@ -4,8 +4,8 @@ from telegram import Update
 from telegram.error import BadRequest, TimedOut
 from telegram.ext import CallbackContext, run_async
 
-from core.models import Button, Reaction, Message
-from bot.markup import make_reply_markup_from_chat
+from core.models import Reaction, Message
+from bot.markup import make_reply_markup
 from bot.wrapper import callback_query_handler
 
 logger = logging.getLogger(__name__)
@@ -44,8 +44,7 @@ def handle_button_callback(update: Update, context: CallbackContext):
         **mids,
     )
     reply_to_reaction(context.bot, query, button, reaction)
-    reactions = Button.objects.reactions(**mids)
-    _, reply_markup = make_reply_markup_from_chat(update, context, reactions, message=message)
+    _, reply_markup = make_reply_markup(update, context.bot, message=message)
     try:
         context.bot.edit_message_reply_markup(reply_markup=reply_markup, **mids)
     except TimedOut:

@@ -5,7 +5,7 @@ from telegram import (Message as TGMessage, Update)
 from telegram.ext import CallbackContext, Filters
 
 from bot.magic_marks import process_magic_mark
-from bot.markup import make_reply_markup_from_chat
+from bot.markup import make_reply_markup
 from bot.utils import (
     get_forward_from,
     get_forward_from_chat,
@@ -31,13 +31,7 @@ def process_message(
     msg: TGMessage = update.effective_message
     bot = context.bot
 
-    chat, reply_markup = make_reply_markup_from_chat(
-        update,
-        context,
-        buttons,
-        chat=chat,
-        anonymous=anonymous,
-    )
+    chat, reply_markup = make_reply_markup(update, bot, buttons, chat=chat, anonymous=anonymous)
 
     should_repost = (chat.repost or repost) and msg_type != 'album'
 
@@ -87,12 +81,4 @@ def handle_message(update: Update, context: CallbackContext):
     logger.debug(f"msg_type: {msg_type}, forward: {forward}")
 
     if force > 0 or msg_type in allowed_types or forward and allow_forward:
-        process_message(
-            update,
-            context,
-            msg_type,
-            chat,
-            anonymous,
-            buttons,
-            repost=force > 1,
-        )
+        process_message(update, context, msg_type, chat, anonymous, buttons, repost=force > 1)

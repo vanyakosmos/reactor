@@ -92,6 +92,10 @@ class ChatManager(models.Manager):
         )
         return chat
 
+    def from_update(self, update: Update):
+        chat = update.effective_chat
+        return self.from_tg_chat(chat)
+
 
 def default_buttons():
     return ['👍', '👎']

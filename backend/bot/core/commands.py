@@ -5,7 +5,6 @@ from telegram.ext import CallbackContext, Filters
 
 from bot.channel_publishing.commands import command_create
 from bot.consts import CHAT_FIELDS
-from bot.utils import get_chat
 from bot.wrapper import command
 from core.models import Chat
 from .edit_command import command_edit
@@ -64,7 +63,7 @@ def command_settings(update: Update, context: CallbackContext):
         ex: `/settings help` - show commands and help text
     """
     show_help_text = context.args and context.args[0] == 'help'
-    chat = get_chat(update)
+    chat = Chat.objects.from_update(update)
     content = format_chat_settings(chat, show_help_text)
     update.message.reply_text(content, parse_mode=ParseMode.MARKDOWN)
 

@@ -9,9 +9,9 @@ from telegram.ext import CallbackContext, Filters
 
 from bot import redis
 from bot.filters import StateFilter
-from bot.markup import make_reply_markup_from_chat
+from bot.markup import make_reply_markup
 from bot.wrapper import message_handler
-from core.models import Button, Message, Reaction
+from core.models import Message, Reaction
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +47,6 @@ def handle_reaction_response(update: Update, context: CallbackContext):
     if not button:
         msg.reply_text(f"Post already has too many reactions.")
         return
-    reactions = Button.objects.reactions(**mids)
-    _, reply_markup = make_reply_markup_from_chat(update, context, reactions, message=message)
+    _, reply_markup = make_reply_markup(update, context.bot, message=message)
     context.bot.edit_message_reply_markup(reply_markup=reply_markup, **mids)
     msg.reply_text(f"Reacted with {reaction}")
