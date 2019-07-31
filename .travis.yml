@@ -7,8 +7,8 @@ services:
   - postgresql
 
 install:
-  - pip install -r requirements.txt
-  - pip install coverage
+  - pip install poetry coverage
+  - cd backend && poetry install
 
 script:
   - cd backend && pytest -vv
