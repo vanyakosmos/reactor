@@ -17,6 +17,16 @@ from telegram import (
 from core.models import Button, Chat, Message, User
 
 
+@pytest.fixture
+def mock_bot(mocker, create_tg_user):
+    def get_me(bot):
+        bot_user = create_tg_user(is_bot=True, first_name='bot', username='foobot')
+        bot.bot = bot_user
+        return bot_user
+
+    mocker.patch.object(Bot, 'get_me', get_me)
+
+
 def decode_tg_object(obj: Union[TelegramObject, dict, None, int], default=None):
     if obj is None:
         return default

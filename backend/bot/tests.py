@@ -154,6 +154,7 @@ class TestMarkup:
     'create_user',
     'create_chat',
     'create_message',
+    'mock_bot',
 )
 @pytest.mark.django_db
 class TestMarkupWithDB:
