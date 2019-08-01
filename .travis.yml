@@ -10,7 +10,7 @@ before_install:
 before_script:
   - docker-compose -f docker-compose.travis.yml build app
 script:
-  - docker-compose -f docker-compose.travis.yml run app pytest -vv -n 3 --cov=.
+  - docker-compose -f docker-compose.travis.yml run app pytest -vv -n 3 --cov={bot,core}
 after_script:
   - docker-compose -f docker-compose.travis.yml down
 

@@ -125,7 +125,7 @@ def create_message(request: FixtureRequest, create_user) -> Callable:
     def _create_message(buttons=None, **kwargs):
         # if chat is not specified - assume inline message
         inline = not bool(kwargs.get('chat') or kwargs.get('chat_id'))
-        msg_id = get_id()
+        msg_id = ('id' in kwargs and kwargs.pop('id')) or get_id()
         if not inline:
             chat_id = kwargs.get('chat_id') or kwargs.get('chat').id
             msg_id = Message.get_id(chat_id, msg_id)
@@ -206,9 +206,10 @@ def create_chosen_inline_result(user):
 
 @pytest.fixture(scope='class')
 def create_context(request, create_bot):
-    def _create_context(bot=None):
+    def _create_context(bot=None, args=None):
         context = Mock()
         context.bot = bot or create_bot()
+        context.args = args or []
         return context
 
     return append_to_cls(request, _create_context)
@@ -232,7 +233,10 @@ def create_update(
         message: TGMessage = None,
     ):
         bot = bot or create_bot()
-        user = decode_tg_object(user, create_tg_user().to_dict())
+        if message and not user:
+            user = message.from_user
+        else:
+            user = decode_tg_object(user, create_tg_user().to_dict())
         chat = decode_tg_object(chat, create_tg_chat().to_dict())
         message = decode_tg_object(message, create_tg_message(user=user, chat=chat).to_dict())
 
