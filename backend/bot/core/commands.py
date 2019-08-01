@@ -24,14 +24,17 @@ def get_commands_help(*commands):
 
 
 @command(('help', 'h'))
-def command_help(update: Update, context: CallbackContext):
+def command_help(update: Update, _: CallbackContext):
     """Show list of commands."""
     text = '\n'.join([
-        "This bot can automagically add reactions panel to messages.\n",
+        "This bot can automagically add reactions panel to messages.",
+        '',
         *get_commands_help(command_help),
+        '',
         "Private chat commands:",
         *get_commands_help(command_create),
-        "Chat commands:",
+        '',
+        "Group commands:",
         *get_commands_help(command_settings, command_edit),
     ])
     update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
@@ -70,4 +73,4 @@ def command_settings(update: Update, context: CallbackContext):
 
 @command(('settings', 'sets'), filters=Filters.private)
 def command_settings_private(update: Update, _: CallbackContext):
-    update.message.reply_text("Can show settings only in group chat.")
+    update.message.reply_text("Can show settings only for group chat.")

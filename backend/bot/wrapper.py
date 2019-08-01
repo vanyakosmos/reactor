@@ -1,3 +1,4 @@
+import functools
 import logging
 
 from telegram.ext import (
@@ -13,33 +14,34 @@ from .utils import user_is_admin
 
 
 class HandlerWrapper:
-    def __init__(self, callback, admin_required, handler_class, use_async=False, *args, **kwargs):
-        self.func = callback
-        self.admin_required = admin_required
-        self.handler_class = handler_class
-        callback = self.callback
+    def __init__(self, func, admin_required, handler_class, use_async=False, *args, **kwargs):
+        @functools.wraps(func)
+        def callback(update, context):
+            logger = logging.getLogger(func.__module__)
+            logger.debug(f"☎️  CALLING: {func.__name__:30s}")
+            logger.debug(f"📑\n{update}")
+            if admin_required:
+                if user_is_admin(context.bot, update):
+                    return func(update, context)
+                update.message.reply_text("Only admin can use this command.")
+            else:
+                return func(update, context)
+
         if use_async:
             callback = run_async(callback)
+
+        self.callback = callback
+        self.handler_class = handler_class
         self.handler = handler_class(*args, callback=callback, **kwargs)
+        self.__doc__ = func.__doc__
 
     @property
     def name(self):
-        return self.func.__name__
+        return self.callback.__name__
 
     @property
     def module(self):
-        return self.func.__module__
-
-    def callback(self, update, context):
-        logger = logging.getLogger(self.func.__module__)
-        logger.debug(f"☎️  CALLING: {self.func.__name__:30s}")
-        logger.debug(f"📑\n{update}")
-        if self.admin_required:
-            if user_is_admin(context.bot, update):
-                return self.func(update, context)
-            update.message.reply_text("Only admin can use this command.")
-        else:
-            return self.func(update, context)
+        return self.callback.__module__
 
     def __call__(self, *args, **kwargs):
         self.callback(*args, **kwargs)

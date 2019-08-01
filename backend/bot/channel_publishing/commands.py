@@ -13,10 +13,7 @@ logger = logging.getLogger(__name__)
 
 @command('create', filters=Filters.private)
 def command_create(update: Update, _: CallbackContext):
-    """
-    Trigger creation of the new post.
-    Change user's dialog state.
-    """
+    """Trigger creation of the new post."""
     user: TGUser = update.effective_user
     msg: TGMessage = update.effective_message
     User.objects.from_tg_user(user)  # create user before using it in MessageToPublish
