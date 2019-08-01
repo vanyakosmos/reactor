@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from pathlib import Path
 
 import dj_database_url
@@ -23,6 +24,7 @@ INSTALLED_APPS = [
     # local
     'core.apps.CoreConfig',
     'bot.apps.BotConfig',
+    'stats.apps.StatsConfig',
 ]
 
 MIDDLEWARE = [
@@ -123,3 +125,8 @@ WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
 # redis
 REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
+
+# stats
+STATS_EXPIRATION_SECONDS = int(os.getenv('STATS_EXPIRATION_SECONDS', 60 * 60))  # default: 1 hour
+STATS_EXPIRATION_DELTA = timedelta(seconds=STATS_EXPIRATION_SECONDS)
+STATS_MAX_RESULTS = int(os.getenv('STATS_MAX_RESULTS', 10))

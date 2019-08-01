@@ -11,7 +11,7 @@ from bot.dispatcher import setup_dispatcher
 if settings.WEBHOOK_URL:
     bot = Bot(settings.TG_BOT_TOKEN)
     dispatcher = Dispatcher(bot, update_queue=None, use_context=True)
-    setup_dispatcher(dispatcher, inspect=True)
+    setup_dispatcher(dispatcher, inspect=False)
 
 
 @csrf_exempt
