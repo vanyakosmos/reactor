@@ -1,12 +1,20 @@
-import pytest
-from telegram import Bot
+from functools import partial
 
-from bot.channel_publishing import command_create, handle_publishing_options, handle_publishing, \
-    handle_create_start, handle_create_buttons
+import pytest
+from telegram import Bot, Message as TGMessage
+
+from bot.channel_publishing import (
+    command_create,
+    handle_publishing_options,
+    handle_publishing,
+    handle_create_start,
+    handle_create_buttons,
+)
 from bot.channel_reaction import command_start, handle_reaction_response
 from bot.consts import MAX_BUTTON_LEN
 from bot.core.commands import format_chat_settings
 from bot.group_reaction import handle_reaction_reply, handle_magic_reply
+from bot.group_reposting import handle_message
 from bot.magic_marks import clear_magic_marks, get_magic_marks, process_magic_mark, restore_text
 from bot.markup import (
     gen_buttons,
@@ -617,3 +625,73 @@ class TestGroupReaction:
 
         msg.refresh_from_db()
         assert msg.anonymous
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures(
+    'mock_bot',
+    'mock_redis',
+    'create_update',
+    'create_context',
+    'create_message',
+    'create_chat',
+    'create_user',
+    'create_tg_message',
+)
+class TestGroupReposting:
+    def send_message(self, msg: TGMessage, *args, **kwargs):
+        msg.id = '1111'
+        return msg
+
+    def test_dont_repost_text(self, mocker):
+        user = self.create_user()
+        msg = self.create_tg_message(user=user.tg, text='text')
+        update = self.create_update(message=msg)
+        context = self.create_context()
+        mocker.patch.object(Bot, 'send_message', partial(self.send_message, msg))
+
+        assert Message.objects.count() == 0
+        handle_message(update, context)
+        assert Message.objects.count() == 0
+
+    def test_magic_anon(self, mocker):
+        user = self.create_user()
+        msg = self.create_tg_message(user=user.tg, text='.+~text')
+        update = self.create_update(message=msg)
+        context = self.create_context()
+        mocker.patch.object(Bot, 'send_message', partial(self.send_message, msg))
+
+        assert Message.objects.count() == 0
+
+        handle_message(update, context)
+
+        assert Message.objects.count() == 1
+        message = Message.objects.first()
+        assert message.anonymous
+
+    def test_magic_buttons(self, mocker):
+        user = self.create_user()
+        chat = self.create_chat(buttons=['1', '2'])
+        msg = self.create_tg_message(user=user.tg, chat=chat.tg, text='.+`a`text')
+        update = self.create_update(message=msg)
+        context = self.create_context()
+        mocker.patch.object(Bot, 'send_message', partial(self.send_message, msg))
+
+        assert Message.objects.count() == 0
+
+        handle_message(update, context)
+
+        assert Message.objects.count() == 1
+        message = Message.objects.first()
+        assert message.button_set.count() == 1
+
+    def test_magic_skip(self, mocker):
+        user = self.create_user()
+        msg = self.create_tg_message(user=user.tg, text='.+-text')
+        update = self.create_update(message=msg)
+        context = self.create_context()
+        mocker.patch.object(Bot, 'send_message', partial(self.send_message, msg))
+
+        assert Message.objects.count() == 0
+        handle_message(update, context)
+        assert Message.objects.count() == 0
