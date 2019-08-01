@@ -8,9 +8,10 @@ from telegram.ext import Dispatcher
 
 from bot.dispatcher import setup_dispatcher
 
-bot = Bot(settings.TG_BOT_TOKEN)
-dispatcher = Dispatcher(bot, update_queue=None, use_context=True)
-setup_dispatcher(dispatcher, inspect=True)
+if settings.WEBHOOK_URL:
+    bot = Bot(settings.TG_BOT_TOKEN)
+    dispatcher = Dispatcher(bot, update_queue=None, use_context=True)
+    setup_dispatcher(dispatcher, inspect=True)
 
 
 @csrf_exempt

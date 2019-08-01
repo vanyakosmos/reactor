@@ -7,7 +7,7 @@ from .config import *
 
 BASE_DIR = str(Path(os.path.abspath(__file__)).parents[2])
 SECRET_KEY = os.getenv('SECRET_KEY')
-DEBUG = True
+DEBUG = os.getenv('DEBUG', '1') == '1'
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').strip('"').split()
 
 # Application definition
@@ -118,6 +118,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # bot
 TG_BOT_TOKEN = os.getenv('TG_BOT_TOKEN')
 TG_BOT_POLLING = os.getenv('TG_BOT_POLLING', '1') == '1'
+TG_BOT_WORKERS = int(os.getenv('TG_BOT_WORKERS', '4'))
 WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
 # redis
