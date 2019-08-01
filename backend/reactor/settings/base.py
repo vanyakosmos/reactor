@@ -118,6 +118,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # bot
 TG_BOT_TOKEN = os.getenv('TG_BOT_TOKEN')
 TG_BOT_POLLING = os.getenv('TG_BOT_POLLING', '1') == '1'
+WEBHOOK_URL = os.getenv('WEBHOOK_URL')
 
 # redis
 REDIS_URL = os.getenv('REDIS_URL', 'redis://localhost:6379/0')
