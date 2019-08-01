@@ -8,11 +8,11 @@ before_install:
   - ./.travis/install_docker.sh
 
 before_script:
-  - docker-compose -f docker-compose.travis.yml build app
+  - ./.travis/script.sh before
 script:
-  - docker-compose -f docker-compose.travis.yml run app pytest -vv -n 3 --cov={bot,core}
+  - ./.travis/script.sh run
 after_script:
-  - docker-compose -f docker-compose.travis.yml down
+  - ./.travis/script.sh after
 
 deploy:
   provider: heroku

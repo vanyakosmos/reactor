@@ -1,0 +1,12 @@
+[run]
+omit =
+  manage.py
+  conftest.py
+  reactor/*
+  */migrations/*
+  */management/*
+  */test*
+  */__init__.py
+  */urls.py
+  */views.py
+  */apps.py
