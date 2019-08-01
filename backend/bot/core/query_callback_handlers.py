@@ -2,7 +2,7 @@ import logging
 
 from telegram import Update
 from telegram.error import BadRequest, TimedOut
-from telegram.ext import CallbackContext, run_async
+from telegram.ext import CallbackContext
 
 from core.models import Reaction, Message
 from bot.markup import make_reply_markup
@@ -20,7 +20,6 @@ def reply_to_reaction(bot, query, button, reaction):
 
 
 @callback_query_handler(pattern=r"^button:(.+)$")
-@run_async
 def handle_button_callback(update: Update, context: CallbackContext):
     msg = update.effective_message
     user = update.effective_user
@@ -54,6 +53,5 @@ def handle_button_callback(update: Update, context: CallbackContext):
 
 
 @callback_query_handler(pattern="^~$")
-@run_async
 def handle_empty_callback(update: Update, _: CallbackContext):
     update.callback_query.answer(cache_time=10)

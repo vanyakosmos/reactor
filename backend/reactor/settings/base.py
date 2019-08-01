@@ -8,7 +8,7 @@ from .config import *
 BASE_DIR = str(Path(os.path.abspath(__file__)).parents[2])
 SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = True
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split()
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').strip('"').split()
 
 # Application definition
 
