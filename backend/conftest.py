@@ -33,6 +33,8 @@ def mock_bot(mocker, create_tg_user):
         ('get_me', get_me),
         'send_message',
         'answer_inline_query',
+        'answer_callback_query',
+        'answerCallbackQuery',
         'edit_message_reply_markup',
         'send_chat_action',
         'delete_message',
@@ -159,7 +161,7 @@ def create_tg_message(
         user = decode_tg_object(user, create_tg_user().to_dict())
         chat = decode_tg_object(chat, create_tg_chat().to_dict())
         data = {
-            'message_id': 1,
+            'message_id': get_id(),
             'date': 1564646464,
             'from': user,
             'chat': chat,
@@ -210,6 +212,17 @@ def create_chosen_inline_result(user):
     }
 
 
+def create_callback_query(user, message, data='~'):
+    return {
+        'id': get_id(),
+        'chat_instance': get_id(),
+        'inline_message_id': message['message_id'] if not message.get('chat') else None,
+        'message': message,
+        'data': data,
+        'from': user,
+    }
+
+
 @pytest.fixture(scope='class')
 def create_context(request, create_bot):
     def _create_context(bot=None, args=None, match=None, message: TGMessage = None):
@@ -236,6 +249,7 @@ def create_update(
         bot=None,
         inline_query=False,
         chosen_inline_result=False,
+        callback_query=None,
         user: TGUser = None,
         forward_from: TGChat = None,
         chat: TGChat = None,
@@ -244,13 +258,16 @@ def create_update(
     ):
         bot = bot or create_bot()
         if message and not user:
-            user = message.from_user
+            user = message.from_user.to_dict()
         else:
             user = decode_tg_object(user, create_tg_user().to_dict())
         chat = decode_tg_object(chat, create_tg_chat().to_dict())
         message = decode_tg_object(message, create_tg_message(user=user, chat=chat).to_dict())
 
         update = {'update_id': 486565656}
+
+        if callback_query:
+            update['callback_query'] = create_callback_query(user, message, callback_query)
 
         if inline_query:
             update['inline_query'] = create_inline_query(user)
@@ -259,13 +276,14 @@ def create_update(
             update['chosen_inline_result'] = create_chosen_inline_result(user)
 
         if message:
-            update['message'] = message
-
             if forward_from:
                 message['forward_from'] = decode_tg_object(forward_from)
 
             if reply_to_message:
                 message['reply_to_message'] = reply_to_message.to_dict()
+
+        if message and not callback_query:
+            update['message'] = message
 
         return Update.de_json(update, bot)
 

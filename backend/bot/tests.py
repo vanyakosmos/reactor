@@ -1,7 +1,7 @@
 from functools import partial
 
 import pytest
-from telegram import Bot, Message as TGMessage
+from telegram import Bot, Message as TGMessage, CallbackQuery
 
 from bot.channel_publishing import (
     command_create,
@@ -12,6 +12,7 @@ from bot.channel_publishing import (
 )
 from bot.channel_reaction import command_start, handle_reaction_response
 from bot.consts import MAX_BUTTON_LEN, MAX_NUM_BUTTONS, MESSAGE_TYPES
+from bot.core import handle_button_callback, handle_empty_callback
 from bot.core.commands import (
     format_chat_settings,
     command_help,
@@ -884,3 +885,55 @@ class TestCoreCommands:
         assert not chat.show_credits
         chat.refresh_from_db()
         assert not chat.show_credits
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures(
+    'mock_bot',
+    'mock_redis',
+    'create_update',
+    'create_context',
+    'create_message',
+    'create_user',
+    'create_chat',
+    'create_tg_message',
+)
+class TestCoreCallbackQueries:
+    def test_cb(self, mocker):
+        message = self.create_message(buttons=['a', 'b'])
+        update = self.create_update(callback_query='button:a', message=message.tg)
+        context = self.create_context(match=['button:a', 'a'])
+        mocker.spy(Bot, 'answer_callback_query')
+
+        cs = message.button_set.values_list('count', flat=True)
+        assert list(cs) == [0, 0]
+
+        handle_button_callback(update, context)
+
+        assert Bot.answer_callback_query.call_count == 1
+        cs = message.button_set.values_list('count', flat=True)
+        assert list(cs) == [1, 0]
+
+    def test_cb_in_chat(self, mocker):
+        chat = self.create_chat()
+        message = self.create_message(buttons=['a', 'b'], chat=chat)
+        update = self.create_update(callback_query='button:b', message=message.tg)
+        context = self.create_context(match=['button:b', 'b'])
+        mocker.spy(Bot, 'answer_callback_query')
+
+        cs = message.button_set.values_list('count', flat=True)
+        assert list(cs) == [0, 0]
+
+        handle_button_callback(update, context)
+
+        assert Bot.answer_callback_query.call_count == 1
+        cs = message.button_set.values_list('count', flat=True)
+        assert list(cs) == [0, 1]
+
+    def test_empty_cb(self, mocker):
+        update = self.create_update(callback_query='~')
+        context = self.create_context()
+        mocker.spy(CallbackQuery, 'answer')
+
+        handle_empty_callback(update, context)
+        assert CallbackQuery.answer.call_count == 1

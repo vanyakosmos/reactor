@@ -27,7 +27,7 @@ def handle_button_callback(update: Update, context: CallbackContext):
     text = context.match[1]
 
     mids = dict(
-        chat_id=msg and msg.chat_id,
+        chat_id=msg and msg.chat and msg.chat_id,
         message_id=msg and msg.message_id,
         inline_message_id=query.inline_message_id,
     )
