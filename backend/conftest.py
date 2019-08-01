@@ -26,17 +26,23 @@ def mock_bot(mocker, create_tg_user):
         bot.bot = bot_user
         return bot_user
 
-    mocks = [
+    def bot_is_admin(*args, **kwargs):
+        return True
+
+    bot_mocks = [
         ('get_me', get_me),
         'send_message',
         'answer_inline_query',
         'edit_message_reply_markup',
         'send_chat_action',
+        'delete_message',
     ]
-    for mock in mocks:
+    for mock in bot_mocks:
         if isinstance(mock, str):
             mock = (mock,)
         mocker.patch.object(Bot, *mock)
+
+    mocker.patch('bot.utils.bot_is_admin', bot_is_admin)
 
 
 @pytest.fixture
@@ -206,10 +212,11 @@ def create_chosen_inline_result(user):
 
 @pytest.fixture(scope='class')
 def create_context(request, create_bot):
-    def _create_context(bot=None, args=None):
+    def _create_context(bot=None, args=None, match=None):
         context = Mock()
         context.bot = bot or create_bot()
         context.args = args or []
+        context.match = match or []
         return context
 
     return append_to_cls(request, _create_context)
@@ -231,6 +238,7 @@ def create_update(
         forward_from: TGChat = None,
         chat: TGChat = None,
         message: TGMessage = None,
+        reply_to_message: TGMessage = None,
     ):
         bot = bot or create_bot()
         if message and not user:
@@ -251,8 +259,11 @@ def create_update(
         if message:
             update['message'] = message
 
-        if message and forward_from:
-            update['message']['forward_from'] = decode_tg_object(forward_from)
+            if forward_from:
+                message['forward_from'] = decode_tg_object(forward_from)
+
+            if reply_to_message:
+                message['reply_to_message'] = reply_to_message.to_dict()
 
         return Update.de_json(update, bot)
 

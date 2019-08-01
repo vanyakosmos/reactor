@@ -144,7 +144,7 @@ class Chat(TGMixin, models.Model):
 class MessageQuerySet(models.QuerySet):
     def get_by_ids(self, chat_id, message_id, inline_message_id=None) -> 'Message':
         umid = Message.get_id(chat_id, message_id, inline_message_id)
-        return Message.objects.get(id=umid)
+        return self.get(id=umid)
 
     def create_from_inline(
         self, inline_message_id, from_user: User, buttons: list, **kwargs
@@ -259,7 +259,7 @@ class Message(TGMixin, models.Model):
     @property
     def tg(self):
         return TGMessage(
-            message_id=self.id,
+            message_id=self.message_id or self.id,
             from_user=self.from_user.tg,
             date=self.date,
             chat=self.chat and self.chat.tg,

@@ -6,6 +6,7 @@ from bot.channel_publishing import command_create, handle_publishing_options, ha
 from bot.channel_reaction import command_start, handle_reaction_response
 from bot.consts import MAX_BUTTON_LEN
 from bot.core.commands import format_chat_settings
+from bot.group_reaction import handle_reaction_reply, handle_magic_reply
 from bot.magic_marks import clear_magic_marks, get_magic_marks, process_magic_mark, restore_text
 from bot.markup import (
     gen_buttons,
@@ -539,3 +540,80 @@ class TestChannelReaction:
 
         assert Bot.send_message.call_count == 1
         assert Button.objects.count() == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures(
+    'mock_bot',
+    'mock_redis',
+    'create_update',
+    'create_context',
+    'create_message',
+    'create_chat',
+    'create_user',
+    'create_tg_message',
+)
+class TestGroupReaction:
+    def test_reply(self):
+        user = self.create_user()
+        chat = self.create_chat()
+        msg = self.create_message(chat=chat, from_user=user, buttons=['a', 'b'])
+
+        reply = self.create_tg_message(user=user.tg, text='+c')
+        update = self.create_update(message=reply, reply_to_message=msg.tg)
+        context = self.create_context(match=['+c', 'c'])
+
+        handle_reaction_reply(update, context)
+
+        bs = msg.button_set.values_list('text', flat=True)
+        assert list(bs) == ['a', 'b', 'c']
+
+    def test_reply_restricted(self):
+        user = self.create_user()
+        chat = self.create_chat(allow_reactions=False)
+        msg = self.create_message(chat=chat, from_user=user, buttons=['a', 'b'])
+
+        reply = self.create_tg_message(user=user.tg, text='+c')
+        update = self.create_update(message=reply, reply_to_message=msg.tg)
+        context = self.create_context(match=['+c', 'c'])
+
+        handle_reaction_reply(update, context)
+        assert msg.button_set.count() == 2
+
+        chat.allow_reactions = True
+        chat.force_emojis = True
+        chat.save()
+
+        handle_reaction_reply(update, context)
+        assert msg.button_set.count() == 2
+
+    def test_magic_reply_buttons(self):
+        user = self.create_user()
+        chat = self.create_chat()
+        msg = self.create_message(chat=chat, from_user=user, buttons=['a', 'b'])
+
+        reply = self.create_tg_message(user=user.tg, text='.`c`')
+        update = self.create_update(message=reply, reply_to_message=msg.tg)
+        context = self.create_context()
+
+        assert msg.button_set.count() == 2
+
+        handle_magic_reply(update, context)
+
+        assert msg.button_set.count() == 1
+
+    def test_magic_reply_anon(self):
+        user = self.create_user()
+        chat = self.create_chat()
+        msg = self.create_message(chat=chat, from_user=user, buttons=['a', 'b'])
+
+        reply = self.create_tg_message(user=user.tg, text='.~')
+        update = self.create_update(message=reply, reply_to_message=msg.tg)
+        context = self.create_context()
+
+        assert not msg.anonymous
+
+        handle_magic_reply(update, context)
+
+        msg.refresh_from_db()
+        assert msg.anonymous
