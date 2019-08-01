@@ -1,5 +1,6 @@
 import uuid
 from typing import Callable, Union
+from unittest.mock import Mock
 
 import pytest
 from _pytest.fixtures import FixtureRequest
@@ -14,6 +15,7 @@ from telegram import (
     TelegramObject,
 )
 
+from bot import redis
 from core.models import Button, Chat, Message, User
 
 
@@ -24,7 +26,22 @@ def mock_bot(mocker, create_tg_user):
         bot.bot = bot_user
         return bot_user
 
-    mocker.patch.object(Bot, 'get_me', get_me)
+    mocks = [
+        ('get_me', get_me),
+        'send_message',
+        'answer_inline_query',
+        'edit_message_reply_markup',
+        'send_chat_action',
+    ]
+    for mock in mocks:
+        if isinstance(mock, str):
+            mock = (mock,)
+        mocker.patch.object(Bot, *mock)
+
+
+@pytest.fixture
+def mock_redis(mocker):
+    mocker.patch.object(redis, 'rc')
 
 
 def decode_tg_object(obj: Union[TelegramObject, dict, None, int], default=None):
@@ -169,6 +186,34 @@ def create_bot(request: FixtureRequest) -> Callable:
     return append_to_cls(request, _create_bot)
 
 
+def create_inline_query(user):
+    return {
+        'id': '384826580849189586',
+        'query': '2008679b-6e3d-4d25-810f-c25c073dbde7',
+        'offset': '',
+        'from': user
+    }
+
+
+def create_chosen_inline_result(user):
+    return {
+        'result_id': '3951f204-53c7-4cd4-ba36-886342e979b7',
+        'query': '2008679b-6e3d-4d25-810f-c25c073dbde7',
+        'inline_message_id': 'AgAAAKlCAABX4ui8j5MPpV3dwRg',
+        'from': user,
+    }
+
+
+@pytest.fixture(scope='class')
+def create_context(request, create_bot):
+    def _create_context(bot=None):
+        context = Mock()
+        context.bot = bot or create_bot()
+        return context
+
+    return append_to_cls(request, _create_context)
+
+
 @pytest.fixture(scope='class')
 def create_update(
     request: FixtureRequest,
@@ -179,7 +224,8 @@ def create_update(
 ) -> Callable:
     def _create_update(
         bot=None,
-        inline_feedback=False,
+        inline_query=False,
+        chosen_inline_result=False,
         user: TGUser = None,
         forward_from: TGChat = None,
         chat: TGChat = None,
@@ -189,25 +235,21 @@ def create_update(
         user = decode_tg_object(user, create_tg_user().to_dict())
         chat = decode_tg_object(chat, create_tg_chat().to_dict())
         message = decode_tg_object(message, create_tg_message(user=user, chat=chat).to_dict())
-        if inline_feedback:
-            data = {
-                'update_id': 486565656,
-                'chosen_inline_result': {
-                    'result_id': '8f35f7c9-10f6-432c-ab16-cb9bae7f7300',
-                    'query': '2a9d964c-d8b3-486a-9bb2-a98ad358dade',
-                    'inline_message_id': 'AgAAAKZCAABX4ui8H4EjLpoSVZE',
-                    'from': user,
-                },
-            }
-        else:
-            data = {
-                'update_id': 486565656,
-                'message': message,
-            }
 
-        if forward_from and 'message' in data:
-            data['message']['forward_from'] = decode_tg_object(forward_from)
+        update = {'update_id': 486565656}
 
-        return Update.de_json(data, bot)
+        if inline_query:
+            update['inline_query'] = create_inline_query(user)
+
+        if chosen_inline_result:
+            update['chosen_inline_result'] = create_chosen_inline_result(user)
+
+        if message:
+            update['message'] = message
+
+        if message and forward_from:
+            update['message']['forward_from'] = decode_tg_object(forward_from)
+
+        return Update.de_json(update, bot)
 
     return append_to_cls(request, _create_update)

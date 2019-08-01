@@ -144,7 +144,7 @@ class TestReactionModel:
         r = Reaction.objects.safe_create(user.tg, msg.id, b)
         assert r.user == user and r.message == msg
 
-    @pytest.mark.skip
+    @pytest.mark.skip("pytest misbehave with IntegrityError")
     def test_safe_create_without_user(self):
         msg: Message = self.create_message()
         b: Button = self.create_button()
@@ -178,7 +178,7 @@ class TestReactionModel:
         b1.refresh_from_db()
         assert b1.count == 0
 
-    @pytest.mark.skip
+    @pytest.mark.skip("pytest misbehave with IntegrityError")
     def test_react_new_user(self):
         tg_user = self.create_tg_user()
         msg = self.create_message(buttons=['a', 'b'])

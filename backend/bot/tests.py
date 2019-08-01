@@ -1,17 +1,21 @@
 import pytest
+from telegram import Bot
 
+from bot.channel_publishing import command_create, handle_publishing_options, handle_publishing, \
+    handle_create_start, handle_create_buttons
 from bot.consts import MAX_BUTTON_LEN
 from bot.core.commands import format_chat_settings
-from bot.magic_marks import get_magic_marks, clear_magic_marks, restore_text, process_magic_mark
+from bot.magic_marks import clear_magic_marks, get_magic_marks, process_magic_mark, restore_text
 from bot.markup import (
-    make_credits_keyboard,
-    merge_keyboards,
     gen_buttons,
+    make_credits_keyboard,
     make_reactions_keyboard,
     make_reply_markup,
+    merge_keyboards,
 )
+from bot import redis
 from bot.utils import clear_buttons
-from core.models import Chat, Message, User
+from core.models import Chat, Message, User, MessageToPublish
 
 
 @pytest.mark.django_db
@@ -170,7 +174,7 @@ class TestMarkupWithDB:
 
     def test_make_reply_markup_inline(self):
         bot = self.create_bot()
-        update = self.create_update(bot=bot, inline_feedback=True)
+        update = self.create_update(bot=bot, chosen_inline_result=True)
         kb = self.make_msg_kb(bot, update, buttons=['a', 'b', 'c'])
         assert len(kb) == 2
         assert kb[0][0].text == 'add reaction'
@@ -178,7 +182,7 @@ class TestMarkupWithDB:
 
     def test_make_reply_markup_inline_wo_buttons(self):
         bot = self.create_bot()
-        update = self.create_update(bot=bot, inline_feedback=True)
+        update = self.create_update(bot=bot, chosen_inline_result=True)
         kb = self.make_msg_kb(bot, update, buttons=[])
         assert len(kb) == 1
         assert kb[0][0].text == 'add reaction'
@@ -364,3 +368,92 @@ class TestMagicMarks:
         assert not anon
         assert force == 1
         assert buttons == ['a']
+
+
+@pytest.fixture
+def mock_get_msg_and_buttons(mocker, create_tg_message):
+    def get_msg_and_buttons(*args, **kwargs):
+        msg = create_tg_message(text='text')
+        return msg, ['1', '2']
+
+    mocker.patch('bot.channel_publishing.inline_handlers.get_msg_and_buttons', get_msg_and_buttons)
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures(
+    'mock_bot',
+    'mock_redis',
+    'create_bot',
+    'create_update',
+    'create_context',
+    'create_tg_message',
+    'create_user',
+)
+class TestChannelPublishing:
+    def test_command_create(self, mocker):
+        msg = self.create_tg_message(text='/create')
+        update = self.create_update(message=msg)
+        mocker.spy(Bot, 'send_message')
+        mocker.spy(redis, 'set_state')
+        command_create(update, self.create_context())
+        assert Bot.send_message.call_count == 1
+        assert redis.set_state.call_args[0][1] == redis.State.create_start
+
+    def test_handle_create_start(self, mocker):
+        user = self.create_user()
+        msg = self.create_tg_message(text='text', user=user.tg)
+        update = self.create_update(message=msg, user=user.tg)
+        mocker.spy(Bot, 'send_message')
+        mocker.spy(redis, 'set_state')
+        assert MessageToPublish.objects.count() == 0
+        handle_create_start(update, self.create_context())
+        assert MessageToPublish.objects.count() == 1
+        assert Bot.send_message.call_count == 1
+        assert redis.set_state.call_args[0][1] == redis.State.create_buttons
+
+    def test_handle_create_buttons_bad(self, mocker):
+        user = self.create_user()
+        msg = self.create_tg_message(user=user.tg, text='1 2')
+        update = self.create_update(message=msg, user=user.tg)
+        mtp = MessageToPublish.objects.create(
+            user=user,
+            message=self.create_tg_message(text='text').to_dict(),
+        )
+        mocker.spy(Bot, 'send_message')
+        mocker.spy(redis, 'set_state')
+        handle_create_buttons(update, self.create_context())
+        mtp.refresh_from_db()
+        assert mtp.buttons is None
+        assert Bot.send_message.call_count == 1
+        assert redis.set_state.call_count == 0
+
+    def test_handle_create_buttons(self, mocker):
+        user = self.create_user()
+        msg = self.create_tg_message(user=user.tg, text='👍 👎')
+        update = self.create_update(message=msg, user=user.tg)
+        mtp = MessageToPublish.objects.create(
+            user=user,
+            message=self.create_tg_message(text='text').to_dict(),
+        )
+        mocker.spy(Bot, 'send_message')
+        mocker.spy(redis, 'set_state')
+        handle_create_buttons(update, self.create_context())
+        mtp.refresh_from_db()
+        assert mtp.buttons == ['👍', '👎']
+        assert Bot.send_message.call_count == 2
+        assert redis.set_state.call_count == 1
+        assert redis.set_state.call_args[0][1] == redis.State.create_end
+
+    @pytest.mark.usefixtures('mock_get_msg_and_buttons')
+    def test_handle_publishing_options(self, mocker):
+        update = self.create_update(inline_query=True)
+        mocker.spy(Bot, 'answer_inline_query')
+        handle_publishing_options(update, self.create_context())
+        assert Bot.answer_inline_query.call_count == 1
+
+    @pytest.mark.usefixtures('mock_get_msg_and_buttons')
+    def test_handle_publishing(self, mocker):
+        update = self.create_update(chosen_inline_result=True)
+        mocker.spy(Bot, 'edit_message_reply_markup')
+        handle_publishing(update, self.create_context())
+        assert Bot.edit_message_reply_markup.call_count == 1

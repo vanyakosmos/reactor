@@ -41,6 +41,9 @@ class HandlerWrapper:
         else:
             return self.func(update, context)
 
+    def __call__(self, *args, **kwargs):
+        self.callback(*args, **kwargs)
+
 
 def handler_decorator_factory(handler_class, use_async=False):
     def handler_decorator(*args, admin_required=False, **kwargs):

@@ -7,6 +7,7 @@ from telegram import (
     ReplyKeyboardMarkup,
     Update,
     User as TGUser,
+    ChatAction,
 )
 from telegram.ext import CallbackContext, Filters
 
@@ -74,6 +75,7 @@ def handle_create_buttons(update: Update, context: CallbackContext):
     message = mtp.message_tg
     msg_type = get_message_type(message)
     reply_markup = make_reactions_keyboard(buttons, blank=True)
+    update.effective_chat.send_action(ChatAction.TYPING)
     reply_markup.inline_keyboard.append([
         InlineKeyboardButton(
             "publish",
