@@ -54,8 +54,11 @@ def format_chat_settings(chat: Chat, show_help_text=False):
         else:
             field = field.ljust(just)
             settings_list.append(f"{field} - {value}")
-    settings_text = '\n'.join(settings_list)
-    return f"```\n{settings_text}\n```"
+    text = '\n'.join(settings_list)
+    text = f"```\n{text}\n```"
+    if not show_help_text:
+        text = f"Use `/settings help` for more details.\n{text}"
+    return text
 
 
 @command(('settings', 'sets'), filters=Filters.group, pass_args=True)

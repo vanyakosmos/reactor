@@ -11,8 +11,21 @@ from bot.channel_publishing import (
     handle_create_buttons,
 )
 from bot.channel_reaction import command_start, handle_reaction_response
-from bot.consts import MAX_BUTTON_LEN
-from bot.core.commands import format_chat_settings
+from bot.consts import MAX_BUTTON_LEN, MAX_NUM_BUTTONS, MESSAGE_TYPES
+from bot.core.commands import (
+    format_chat_settings,
+    command_help,
+    get_commands_help,
+    command_settings,
+    command_settings_private,
+)
+from bot.core.edit_command import (
+    change_buttons,
+    change_bool,
+    change_columns,
+    change_allowed_types,
+    command_edit,
+)
 from bot.group_reaction import handle_reaction_reply, handle_magic_reply
 from bot.group_reposting import handle_message
 from bot.magic_marks import clear_magic_marks, get_magic_marks, process_magic_mark, restore_text
@@ -695,3 +708,179 @@ class TestGroupReposting:
         assert Message.objects.count() == 0
         handle_message(update, context)
         assert Message.objects.count() == 0
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures(
+    'mock_bot',
+    'mock_redis',
+    'create_update',
+    'create_context',
+    'create_tg_message',
+    'create_chat',
+)
+class TestCoreCommands:
+    def test_get_commands_help(self):
+        docs = get_commands_help(command_help)
+        assert '/help' in ' '.join(docs)
+
+    def test_help(self, mocker):
+        msg = self.create_tg_message(text='/help')
+        update = self.create_update(message=msg)
+        context = self.create_context()
+        mocker.spy(Bot, 'send_message')
+
+        command_help(update, context)
+
+        assert Bot.send_message.call_count == 1
+
+    def test_format_chat_settings(self):
+        chat = self.create_chat()
+        text = format_chat_settings(chat)
+        assert isinstance(text, str)
+
+    def test_settings(self, mocker):
+        msg = self.create_tg_message(text='/sets')
+        update = self.create_update(message=msg)
+        context = self.create_context()
+        mocker.spy(Bot, 'send_message')
+
+        command_settings(update, context)
+        assert Bot.send_message.call_count == 1
+
+        command_settings_private(update, context)
+        assert Bot.send_message.call_count == 2
+
+    def test_change_buttons(self):
+        chat = self.create_chat()
+        update = self.create_update()
+
+        change_buttons(update, chat, ['a', 'b'])
+        chat.refresh_from_db()
+        assert chat.buttons == ['a', 'b']
+
+        # unique
+        change_buttons(update, chat, ['a'] * MAX_NUM_BUTTONS)
+        chat.refresh_from_db()
+        assert chat.buttons == ['a']
+
+        # just enough
+        bs = list(map(str, range(MAX_NUM_BUTTONS)))
+        change_buttons(update, chat, bs)
+        chat.refresh_from_db()
+        assert chat.buttons == bs
+
+        # too many
+        chat.buttons = []
+        chat.save()
+        bs = list(map(str, range(MAX_NUM_BUTTONS + 1)))
+        change_buttons(update, chat, bs)
+        chat.refresh_from_db()
+        assert chat.buttons == []
+
+    def test_change_bool(self, mocker):
+        chat = self.create_chat()
+        update = self.create_update()
+        mocker.spy(chat, 'save')
+
+        # unchanged
+        change_bool(update, chat, [], 'show_credits', 'true', 'false')
+        chat.refresh_from_db()
+        assert chat.save.call_count == 0
+
+        # unchanged
+        change_bool(update, chat, ['foo'], 'show_credits', 'true', 'false')
+        chat.refresh_from_db()
+        assert chat.save.call_count == 0
+
+        # unchanged
+        change_bool(update, chat, ['0', 'foo'], 'show_credits', 'true', 'false')
+        chat.refresh_from_db()
+        assert chat.save.call_count == 0
+
+        # turn off
+        change_bool(update, chat, ['0'], 'show_credits', 'true', 'false')
+        chat.refresh_from_db()
+        assert chat.save.call_count == 1
+        assert not chat.show_credits
+
+        # turn on
+        change_bool(update, chat, ['1'], 'show_credits', 'true', 'false')
+        chat.refresh_from_db()
+        assert chat.save.call_count == 2
+        assert chat.show_credits
+
+        # turn off
+        change_bool(update, chat, ['false'], 'show_credits', 'true', 'false')
+        chat.refresh_from_db()
+        assert chat.save.call_count == 3
+        assert not chat.show_credits
+
+        # turn on
+        change_bool(update, chat, ['true'], 'show_credits', 'true', 'false')
+        chat.refresh_from_db()
+        assert chat.save.call_count == 4
+        assert chat.show_credits
+
+    def test_change_columns(self, mocker):
+        chat = self.create_chat()
+        update = self.create_update()
+        mocker.spy(chat, 'save')
+
+        # empty
+        change_columns(update, chat, [])
+        chat.refresh_from_db()
+        assert chat.save.call_count == 0
+
+        # alpha
+        change_columns(update, chat, ['a'])
+        chat.refresh_from_db()
+        assert chat.save.call_count == 0
+
+        # too many
+        change_columns(update, chat, ['1', '2'])
+        chat.refresh_from_db()
+        assert chat.save.call_count == 0
+
+        # beyond limit
+        change_columns(update, chat, ['7'])
+        chat.refresh_from_db()
+        assert chat.save.call_count == 0
+
+        change_columns(update, chat, ['1'])
+        chat.refresh_from_db()
+        assert chat.columns == 1
+        assert chat.save.call_count == 1
+
+        change_columns(update, chat, ['4'])
+        chat.refresh_from_db()
+        assert chat.columns == 4
+        assert chat.save.call_count == 2
+
+    def test_change_allowed_types(self):
+        chat = self.create_chat()
+        update = self.create_update()
+        types = MESSAGE_TYPES[:2]
+        change_allowed_types(update, chat, [*types, 'foo'])
+
+        chat.refresh_from_db()
+        assert chat.allowed_types == types
+
+    def test_command_edit(self, mocker):
+        chat = self.create_chat()
+        msg = self.create_tg_message(chat=chat.tg, text='/edit show_credits 0')
+        update = self.create_update(message=msg)
+        context = self.create_context(message=msg)
+
+        mocker.patch('bot.utils.user_is_admin').return_value = True
+        command_edit(update, context)
+        assert chat.show_credits
+        chat.refresh_from_db()
+        assert not chat.show_credits
+
+        # only admin can change chat settings
+        mocker.patch('bot.utils.user_is_admin').return_value = False
+        command_edit(update, context)
+        assert not chat.show_credits
+        chat.refresh_from_db()
+        assert not chat.show_credits

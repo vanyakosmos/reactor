@@ -24,7 +24,7 @@ CHAT_FIELDS = {
         'message type to be automatically reposted by bot.\n'
         f'Available types: {" ".join(sorted(MESSAGE_TYPES))}',
     'allow_reactions': "allow to add reactions",
-    'force_emojis': "allow to use only emojis as reaction",
+    'force_emojis': "allow to use only emojis as reactions",
     'repost': "if true then repost messages on bot's behalf, otherwise just reply to messages",
 }
 MAX_NUM_BUTTONS = 25

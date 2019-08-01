@@ -212,7 +212,9 @@ def create_chosen_inline_result(user):
 
 @pytest.fixture(scope='class')
 def create_context(request, create_bot):
-    def _create_context(bot=None, args=None, match=None):
+    def _create_context(bot=None, args=None, match=None, message: TGMessage = None):
+        if message and message.text and message.text.startswith('/'):
+            args = args or message.text.split()[1:]
         context = Mock()
         context.bot = bot or create_bot()
         context.args = args or []

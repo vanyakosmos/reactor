@@ -19,17 +19,17 @@ def change_buttons(update: Update, chat: Chat, values: list):
 
 
 def change_bool(update: Update, chat: Chat, values: list, field: str, true_text, false_text):
-    option = values[0] if len(values) == 1 else None
-    if option == 'true':
+    option = values[0] if len(values) == 1 else ''
+    if option in ('true', '1'):
         setattr(chat, field, True)
         chat.save()
         reply = true_text
-    elif option == 'false':
+    elif option in ('false', '0'):
         setattr(chat, field, False)
         chat.save()
         reply = false_text
     else:
-        reply = f"Unknown option '{option}'. Should be true or false."
+        reply = f"Unknown option '{option}'. Should be true, 1, false or 0."
     update.message.reply_text(reply)
 
 
@@ -120,8 +120,10 @@ def change_repost(update: Update, chat: Chat, values: list):
 def command_edit(update: Update, context: CallbackContext):
     """
     Edit setting fields.
+        `true` and `1` are true values, `false` and `0` are false values
         ex: `/edit buttons a b c` - replace all buttons
         ex: `/edit buttons` - remove buttons
+        ex: `/edit force_emojis 1` - use only emojis as reactions
     """
     if len(context.args) < 2:
         return

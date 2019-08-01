@@ -9,7 +9,7 @@ before() {
 }
 
 run() {
-  dkc run app pytest -vv --cov=. --cov-config=.coveragerc --cov-fail-under=70
+  dkc run app pytest -vv --cov=. --cov-config=.coveragerc --cov-fail-under=75
 }
 
 after() {

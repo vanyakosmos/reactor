@@ -10,7 +10,7 @@ from telegram.ext import (
     run_async,
 )
 
-from .utils import user_is_admin
+from . import utils
 
 
 class HandlerWrapper:
@@ -21,7 +21,7 @@ class HandlerWrapper:
             logger.debug(f"☎️  CALLING: {func.__name__:30s}")
             logger.debug(f"📑\n{update}")
             if admin_required:
-                if user_is_admin(context.bot, update):
+                if utils.user_is_admin(context.bot, update):
                     return func(update, context)
                 update.message.reply_text("Only admin can use this command.")
             else:
