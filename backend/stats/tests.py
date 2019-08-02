@@ -5,18 +5,28 @@ from random import randint
 import pytest
 from django.test import override_settings
 
-from stats.models import PopularReactions, TopPosters
+from core.models import User
+from stats.models import PopularReactions, TopPosters, Reaction, Poster
+
+
+# noinspection PyUnresolvedReferences
+class SetupMixin:
+    def setup_chat(self):
+        chat = self.create_chat()
+        users = [self.create_user() for _ in range(randint(2, 4))]
+        for user in users:
+            for _ in range(randint(5, 10)):
+                msg = self.create_message(chat=chat, from_user=user)
+                for i in range(randint(1, 4)):
+                    self.create_button(message=msg, text=str(i), count=randint(0, 10))
+        return chat
 
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures('create_chat', 'create_message', 'create_button')
-class TestPopularReactions:
+class TestPopularReactions(SetupMixin):
     def test_calculate(self):
-        chat = self.create_chat()
-        for _ in range(randint(5, 20)):
-            msg = self.create_message(chat=chat)
-            for i in range(randint(1, 4)):
-                self.create_button(message=msg, text=str(i), count=randint(0, 10))
+        chat = self.setup_chat()
 
         dull = defaultdict(int)
         for msg in chat.message_set.all():
@@ -28,10 +38,12 @@ class TestPopularReactions:
             assert dull[r.text] == r.count
 
     def test_get_new(self):
-        chat = self.create_chat()
+        chat = self.setup_chat()
         assert PopularReactions.objects.count() == 0
+        assert Reaction.objects.count() == 0
         PopularReactions.get(chat)
         assert PopularReactions.objects.count() == 1
+        assert Reaction.objects.count() == Reaction.objects.count() > 0
 
     def test_expired(self):
         chat = self.create_chat()
@@ -44,16 +56,9 @@ class TestPopularReactions:
 
 @pytest.mark.django_db
 @pytest.mark.usefixtures('create_chat', 'create_message', 'create_button', 'create_user')
-class TestTopPosters:
+class TestTopPosters(SetupMixin):
     def test_calculate(self):
-        chat = self.create_chat()
-
-        users = [self.create_user() for _ in range(randint(2, 4))]
-        for user in users:
-            for _ in range(randint(5, 10)):
-                msg = self.create_message(chat=chat, from_user=user)
-                for i in range(randint(1, 4)):
-                    self.create_button(message=msg, text=str(i), count=randint(0, 10))
+        chat = self.setup_chat()
 
         real = defaultdict(lambda: defaultdict(int))
         for msg in chat.message_set.all():
@@ -70,10 +75,12 @@ class TestTopPosters:
             assert v['reactions'] == poster.reactions
 
     def test_get_new(self):
-        chat = self.create_chat()
+        chat = self.setup_chat()
         assert TopPosters.objects.count() == 0
+        assert Poster.objects.count() == 0
         TopPosters.get(chat)
         assert TopPosters.objects.count() == 1
+        assert Poster.objects.count() == User.objects.count() > 0
 
     def test_expired(self):
         chat = self.create_chat()

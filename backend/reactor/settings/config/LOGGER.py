@@ -39,20 +39,16 @@ LOGGING = {
         },
     },
     'loggers': {
-        'core': {
+        module: {
             'handlers': ['console'],
             'level': LOGGING_LEVEL,
             'propagate': False,
-        },
-        'bot': {
-            'handlers': ['console'],
-            'level': LOGGING_LEVEL,
-            'propagate': False,
-        },
-        '': {
-            'handlers': ['console'],
-            'level': LOGGING_LEVEL_ROOT,
-            'propagate': False,
-        },
-    }
+        }
+        for module in ['conftest', 'core', 'bot', 'stats']
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': LOGGING_LEVEL_ROOT,
+        'propagate': False,
+    },
 }

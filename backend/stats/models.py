@@ -17,11 +17,11 @@ class Stats(models.Model):
         if isinstance(chat, Chat):
             chat = chat.id
 
-        root, _ = cls.objects.get_or_create(
+        root, created = cls.objects.get_or_create(
             chat_id=chat,
             defaults={'updated': timezone.now()},
         )
-        if root.expired or force:
+        if created or root.expired or force:
             return root.calculate()
         return root.items.all()
 

@@ -130,7 +130,7 @@ def create_tg_chat(request: FixtureRequest) -> Callable:
 
 @pytest.fixture(scope='class')
 def create_message(request: FixtureRequest, create_user) -> Callable:
-    def _create_message(buttons=None, **kwargs):
+    def _create_message(buttons=None, from_user=None, **kwargs):
         # if chat is not specified - assume inline message
         inline = not bool(kwargs.get('chat') or kwargs.get('chat_id'))
         msg_id = ('id' in kwargs and kwargs.pop('id')) or get_id()
@@ -140,7 +140,7 @@ def create_message(request: FixtureRequest, create_user) -> Callable:
         fields = {
             'id': msg_id,
             'date': timezone.now(),
-            'from_user': create_user(),
+            'from_user': from_user or create_user(),
             'inline_message_id': msg_id if inline else None,
             **kwargs,
         }
@@ -174,9 +174,9 @@ def create_tg_message(
 
 @pytest.fixture(scope='class')
 def create_button(request: FixtureRequest, create_message) -> Callable:
-    def _create_button(emoji=False, **kwargs):
+    def _create_button(emoji=False, message=None, **kwargs):
         fields = {
-            'message': create_message(),
+            'message': message or create_message(),
             'index': 0,
             'text': '👍' if emoji else 'b',
             **kwargs,
