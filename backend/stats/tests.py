@@ -16,7 +16,8 @@ class SetupMixin:
         users = [self.create_user() for _ in range(randint(2, 4))]
         for user in users:
             for _ in range(randint(5, 10)):
-                msg = self.create_message(chat=chat, from_user=user)
+                anon = randint(0, 100) > 70
+                msg = self.create_message(chat=chat, from_user=user, anonymous=anon)
                 for i in range(randint(1, 4)):
                     self.create_button(message=msg, text=str(i), count=randint(0, 10))
         return chat
@@ -61,10 +62,10 @@ class TestTopPosters(SetupMixin):
         chat = self.setup_chat()
 
         real = defaultdict(lambda: defaultdict(int))
-        for msg in chat.message_set.all():
+        for msg in chat.message_set.filter(anonymous=False):
             real[msg.from_user.id]['messages'] += 1
 
-        for msg in chat.message_set.all():
+        for msg in chat.message_set.filter(anonymous=False):
             for btn in msg.button_set.all():
                 real[msg.from_user.id]['reactions'] += btn.count
 

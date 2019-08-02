@@ -97,7 +97,7 @@ class TopPosters(Stats):
         """
         self.items.all().delete()
 
-        qs = Message.objects.filter(chat_id=self.chat_id)
+        qs = Message.objects.filter(chat_id=self.chat_id, anonymous=False)
         qs = qs.values('from_user')
         qs = qs.annotate(messages=Count('id', distinct=True))
         qs = qs.annotate(reactions=Sum('button__count'))
