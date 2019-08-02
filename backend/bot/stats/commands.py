@@ -8,6 +8,7 @@ from stats.models import PopularReactions, TopPosters
 
 @command(('reactions', 'reacts'), filters=Filters.group)
 def command_reactions(update: Update, _: CallbackContext):
+    """Show top 10 reactions. Helpful to determine default/permanent buttons."""
     chat = Chat.objects.from_update(update)
     text = '\n'.join([
         f"{i + 1}. {r.text} -> {r.count}" for i, r in enumerate(PopularReactions.get(chat))
@@ -18,6 +19,7 @@ def command_reactions(update: Update, _: CallbackContext):
 
 @command(('champions', 'champs'), filters=Filters.group)
 def command_champions(update: Update, _: CallbackContext):
+    """Show top 10 posters."""
     chat = Chat.objects.from_update(update)
     text = '\n'.join([
         f"{i + 1}. {p.user.full_name} -> messages: {p.messages}, reactions: {p.reactions}"

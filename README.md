@@ -1,6 +1,7 @@
 # reactor
 
 [![Build Status](https://travis-ci.org/vanyakosmos/reactor.svg?branch=master)](https://travis-ci.org/vanyakosmos/reactor)
+[![Coverage](https://codecov.io/gh/vanyakosmos/reactor/branch/master/graph/badge.svg)](https://codecov.io/gh/vanyakosmos/reactor)
 
 Telegram bot that automatically add reaction buttons to messages (similar to slack/discord, but crappier).
 

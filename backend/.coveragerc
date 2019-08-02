@@ -1,4 +1,5 @@
 [run]
+source = .
 omit =
   manage.py
   conftest.py
@@ -10,3 +11,17 @@ omit =
   */urls.py
   */views.py
   */apps.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __str__
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == '__main__':
+
+precision = 2
+show_missing = True
+sort = Cover
+fail_under = 75

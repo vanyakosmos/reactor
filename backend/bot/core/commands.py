@@ -5,6 +5,7 @@ from telegram.ext import CallbackContext, Filters
 
 from bot.channel_publishing.commands import command_create
 from bot.consts import CHAT_FIELDS
+from bot.stats import command_reactions, command_champions
 from bot.wrapper import command
 from core.models import Chat
 from .edit_command import command_edit
@@ -35,7 +36,7 @@ def command_help(update: Update, _: CallbackContext):
         *get_commands_help(command_create),
         '',
         "Group commands:",
-        *get_commands_help(command_settings, command_edit),
+        *get_commands_help(command_settings, command_edit, command_reactions, command_champions),
     ])
     update.message.reply_text(text, parse_mode=ParseMode.MARKDOWN)
 
