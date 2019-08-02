@@ -19,7 +19,7 @@ def command_reactions(update: Update, _: CallbackContext):
 
 @command(('champions', 'champs'), filters=Filters.group)
 def command_champions(update: Update, _: CallbackContext):
-    """Show top 10 posters."""
+    """Show top 10 posters with number of messages posted and number of reactions on them."""
     chat = Chat.objects.from_update(update)
     text = '\n'.join([
         f"{i + 1}. {p.user.full_name} -> messages: {p.messages}, reactions: {p.reactions}"
