@@ -9,7 +9,7 @@ before() {
 }
 
 run() {
-  dkc run app bash -c "pytest -vv --cov=. && codecov"
+  dkc run app pytest -vv --cov=. --cov-report xml
 }
 
 after() {

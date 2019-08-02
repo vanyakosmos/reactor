@@ -14,6 +14,8 @@ services:
     env_file:
       - .envs/.travis/app.env
       - .envs/.travis/postgres.env
+    volumes:
+      - ./backend:/app
     depends_on:
       - db
 
