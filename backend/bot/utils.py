@@ -1,8 +1,8 @@
+from django.conf import settings
 from django.utils.datastructures import OrderedSet
 from emoji import UNICODE_EMOJI
 from telegram import Bot, Message as TGMessage, Update, User as TGUser
 
-from bot.consts import MESSAGE_TYPES, MAX_BUTTON_LEN
 from bot.mwt import MWT
 from bot.redis import save_media_group
 from core.models import Chat, User
@@ -38,7 +38,7 @@ def get_message_type(msg: TGMessage):
         return
     if any((e['type'] == 'url' for e in msg.entities)):
         return 'link'
-    for field in MESSAGE_TYPES:
+    for field in settings.MESSAGE_TYPES:
         if getattr(msg, field, None):
             return field
 
@@ -55,7 +55,7 @@ def get_forward_from_chat(msg: TGMessage):
 
 
 def clear_buttons(buttons: list, emojis=False):
-    buttons = [b for b in OrderedSet(buttons) if len(b) <= MAX_BUTTON_LEN]
+    buttons = [b for b in OrderedSet(buttons) if len(b) <= settings.MAX_BUTTON_LEN]
     if emojis and not all([b in UNICODE_EMOJI for b in buttons]):
         return
     return buttons

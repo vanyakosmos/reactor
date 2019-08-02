@@ -1,14 +1,14 @@
+from django.conf import settings
 from telegram import Update
 from telegram.ext import CallbackContext
 
-from bot.consts import CHAT_FIELDS, MESSAGE_TYPES, MAX_NUM_BUTTONS
 from bot.utils import clear_buttons
 from bot.wrapper import command
 from core.models import Chat
 
 
 def change_buttons(update: Update, chat: Chat, values: list):
-    if len(values) > MAX_NUM_BUTTONS:
+    if len(values) > settings.MAX_NUM_BUTTONS:
         update.message.reply_text("Too many buttons.")
         return
     bs = clear_buttons(values)
@@ -76,7 +76,7 @@ def change_add_padding(update: Update, chat: Chat, values: list):
 
 
 def change_allowed_types(update: Update, chat: Chat, values: list):
-    types = list(filter(lambda e: e in MESSAGE_TYPES, values))
+    types = list(filter(lambda e: e in settings.MESSAGE_TYPES, values))
     chat.allowed_types = types
     chat.save()
     types_str = ' '.join(sorted(types))
@@ -128,7 +128,7 @@ def command_edit(update: Update, context: CallbackContext):
     if len(context.args) < 2:
         return
     field, *values = context.args
-    if field not in CHAT_FIELDS:
+    if field not in settings.CHAT_FIELDS:
         return
     chat = Chat.objects.from_update(update)
     change_mapper = {

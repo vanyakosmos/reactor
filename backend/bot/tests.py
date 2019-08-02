@@ -2,6 +2,7 @@ from functools import partial
 from unittest.mock import Mock
 
 import pytest
+from django.conf import settings
 from telegram import Bot, Message as TGMessage, CallbackQuery
 from telegram.ext import CommandHandler, MessageHandler, Filters
 
@@ -13,7 +14,6 @@ from bot.channel_publishing import (
     handle_create_buttons,
 )
 from bot.channel_reaction import command_start, handle_reaction_response
-from bot.consts import MAX_BUTTON_LEN, MAX_NUM_BUTTONS, MESSAGE_TYPES
 from bot.core import handle_button_callback, handle_empty_callback
 from bot.core.commands import (
     format_chat_settings,
@@ -59,8 +59,9 @@ def test_format_chat_settings():
 class TestUtils:
     def test_clear_buttons(self):
         # test long
-        bs = clear_buttons(['a', 'b', 'c' * MAX_BUTTON_LEN, 'd' * (MAX_BUTTON_LEN + 1)])
-        assert bs == ['a', 'b', 'c' * MAX_BUTTON_LEN]
+        ml = settings.MAX_BUTTON_LEN
+        bs = clear_buttons(['a', 'b', 'c' * ml, 'd' * (ml + 1)])
+        assert bs == ['a', 'b', 'c' * ml]
 
         # test duplicated
         bs = clear_buttons(['a', 'b', 'a', 'c'])
@@ -767,12 +768,12 @@ class TestCoreCommands:
         assert chat.buttons == ['a', 'b']
 
         # unique
-        change_buttons(update, chat, ['a'] * MAX_NUM_BUTTONS)
+        change_buttons(update, chat, ['a'] * settings.MAX_NUM_BUTTONS)
         chat.refresh_from_db()
         assert chat.buttons == ['a']
 
         # just enough
-        bs = list(map(str, range(MAX_NUM_BUTTONS)))
+        bs = list(map(str, range(settings.MAX_NUM_BUTTONS)))
         change_buttons(update, chat, bs)
         chat.refresh_from_db()
         assert chat.buttons == bs
@@ -780,7 +781,7 @@ class TestCoreCommands:
         # too many
         chat.buttons = []
         chat.save()
-        bs = list(map(str, range(MAX_NUM_BUTTONS + 1)))
+        bs = list(map(str, range(settings.MAX_NUM_BUTTONS + 1)))
         change_buttons(update, chat, bs)
         chat.refresh_from_db()
         assert chat.buttons == []
@@ -867,7 +868,7 @@ class TestCoreCommands:
     def test_change_allowed_types(self):
         chat = self.create_chat()
         update = self.create_update()
-        types = MESSAGE_TYPES[:2]
+        types = settings.MESSAGE_TYPES[:2]
         change_allowed_types(update, chat, [*types, 'foo'])
 
         chat.refresh_from_db()

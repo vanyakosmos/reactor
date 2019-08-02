@@ -1,8 +1,8 @@
 import pytest
+from django.conf import settings
 from django.utils import timezone
 from telegram import Chat as TGChat, User as TGUser
 
-from bot.consts import MAX_NUM_BUTTONS, MAX_USER_BUTTONS_HINTS
 from core.models import User, Chat, Message, Button, Reaction, UserButtons
 
 
@@ -94,7 +94,7 @@ class TestButtonModel:
         assert b.count == 0
 
     def test_get_for_reaction(self):
-        assert MAX_NUM_BUTTONS > 1
+        assert settings.MAX_NUM_BUTTONS > 1
 
         msg = self.create_message()
         # create and get the same button twice
@@ -109,7 +109,7 @@ class TestButtonModel:
 
     def test_get_for_reaction_of_limit(self):
         msg = self.create_message()
-        self.create_button(message=msg, text='a', index=MAX_NUM_BUTTONS)
+        self.create_button(message=msg, text='a', index=settings.MAX_NUM_BUTTONS)
         b1 = Button.objects.get_for_reaction('b', msg.id)
         assert b1 is None
 
@@ -219,13 +219,14 @@ class TestUserButtonsModel:
 
     def test_create_too_many(self):
         user = self.create_user()
-        for i in range(MAX_USER_BUTTONS_HINTS):
+        mub = settings.MAX_USER_BUTTONS_HINTS
+        for i in range(mub):
             UserButtons.create(user.id, [str(i)])
             assert UserButtons.objects.count() == i + 1
 
-        assert UserButtons.objects.count() == MAX_USER_BUTTONS_HINTS
+        assert UserButtons.objects.count() == mub
         UserButtons.create(user.id, ['new'])
-        assert UserButtons.objects.count() == MAX_USER_BUTTONS_HINTS
+        assert UserButtons.objects.count() == mub
         assert UserButtons.objects.filter(user=user, buttons__exact=['new']).exists()
 
     def test_buttons_list(self):

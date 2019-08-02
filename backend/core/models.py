@@ -1,12 +1,12 @@
 import uuid
 from typing import Tuple, List
 
+from django.conf import settings
 from django.contrib.postgres.fields import ArrayField, JSONField
 from django.db import IntegrityError, models
 from django.utils import timezone
 from telegram import Chat as TGChat, Message as TGMessage, Update, User as TGUser
 
-from bot.consts import MAX_NUM_BUTTONS, MAX_USER_BUTTONS_HINTS
 from .fields import CharField
 
 __all__ = ['Chat', 'Message', 'Button', 'Reaction', 'User', 'UserButtons', 'MessageToPublish']
@@ -318,7 +318,7 @@ class ButtonManager(models.Manager):
         except Button.DoesNotExist:
             b = self.filter(message_id=umid).last()
             index = b.index + 1 if b else 0
-            if index < MAX_NUM_BUTTONS:
+            if index < settings.MAX_NUM_BUTTONS:
                 return Button.objects.create(message_id=umid, text=reaction, index=index)
 
     def reactions(self, chat_id, message_id, inline_message_id=None) -> List[Tuple[str, int]]:
@@ -448,12 +448,12 @@ class UserButtons(models.Model):
     @classmethod
     def delete_old(cls, user_id):
         ubs = UserButtons.objects.filter(user_id=user_id)
-        ubs = ubs[:MAX_USER_BUTTONS_HINTS].values_list('id', flat=True)
+        ubs = ubs[:settings.MAX_USER_BUTTONS_HINTS].values_list('id', flat=True)
         UserButtons.objects.exclude(pk__in=list(ubs)).delete()
 
     @classmethod
     def create(cls, user_id, buttons):
-        buttons = buttons[:MAX_NUM_BUTTONS]
+        buttons = buttons[:settings.MAX_NUM_BUTTONS]
         if not UserButtons.objects.filter(user_id=user_id, buttons=buttons).exists():
             ub = UserButtons.objects.create(user_id=user_id, buttons=buttons)
             cls.delete_old(user_id)
