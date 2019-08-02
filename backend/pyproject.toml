@@ -24,6 +24,7 @@ pytest-xdist = "^1.29"
 pytest-cov = "^2.7"
 codecov = "^2.0"
 django-dbbackup = "^3.2"
+schedule = "^0.6.0"
 
 [tool.poetry.dev-dependencies]
 

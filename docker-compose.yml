@@ -8,6 +8,9 @@ x-app: &app
     - .envs/.production/postgres.env
   volumes:
     - ./backups:/var/backups
+  depends_on:
+    - db
+    - redis
 
 
 services:
@@ -27,18 +30,16 @@ services:
   app:
     <<: *app
     command: ["./scripts/run.sh", "prod"]
-    depends_on:
-      - db
-      - redis
 
   bot:
     <<: *app
     command: ["./manage.py", "runbot"]
     environment:
       - DJANGO_SETTINGS_MODULE=reactor.settings.bot
-    depends_on:
-      - db
-      - redis
+
+  scheduler:
+    <<: *app
+    command: ["python", "scheduler.py"]
 
 volumes:
   dbdata:
