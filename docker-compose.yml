@@ -6,6 +6,8 @@ x-app: &app
   env_file:
     - .envs/.production/app.env
     - .envs/.production/postgres.env
+  volumes:
+    - ./backups:/var/backups
 
 
 services:

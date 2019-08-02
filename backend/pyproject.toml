@@ -23,6 +23,7 @@ whitenoise = "^4.1"
 pytest-xdist = "^1.29"
 pytest-cov = "^2.7"
 codecov = "^2.0"
+django-dbbackup = "^3.2"
 
 [tool.poetry.dev-dependencies]
 

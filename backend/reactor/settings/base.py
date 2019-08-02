@@ -20,7 +20,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    # 3rd party apps
     'django_extensions',
+    'dbbackup',
     # local
     'core.apps.CoreConfig',
     'bot.apps.BotConfig',
