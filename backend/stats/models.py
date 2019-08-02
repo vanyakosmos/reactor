@@ -13,7 +13,7 @@ class Stats(models.Model):
     updated = models.DateTimeField()
 
     @classmethod
-    def get(cls, chat: Union[Chat, int]):
+    def get(cls, chat: Union[Chat, int], force=False):
         if isinstance(chat, Chat):
             chat = chat.id
 
@@ -21,7 +21,7 @@ class Stats(models.Model):
             chat_id=chat,
             defaults={'updated': timezone.now()},
         )
-        if root.expired:
+        if root.expired or force:
             return root.calculate()
         return root.items.all()
 

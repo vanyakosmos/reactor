@@ -14,7 +14,7 @@ from telegram.ext import (
 )
 
 from .core import handle_error
-from . import channel_publishing, channel_reaction, core, group_reaction, group_reposting
+from . import channel_publishing, channel_reaction, core, group_reaction, group_reposting, stats
 from .wrapper import HandlerWrapper
 
 logger = logging.getLogger(__name__)
@@ -67,7 +67,14 @@ def make_async(handlers: List[HandlerWrapper]):
 
 def setup_dispatcher(dp: Dispatcher, inspect=True, use_async=False):
     handlers: List[HandlerWrapper] = []
-    for module in [channel_publishing, channel_reaction, core, group_reaction, group_reposting]:
+    for module in [
+        channel_publishing,
+        channel_reaction,
+        core,
+        group_reaction,
+        group_reposting,
+        stats,
+    ]:
         handlers.extend(extract_handlers(module))
 
     sort_by_type(handlers)

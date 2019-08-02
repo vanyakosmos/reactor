@@ -1,7 +1,9 @@
 from functools import partial
+from unittest.mock import Mock
 
 import pytest
 from telegram import Bot, Message as TGMessage, CallbackQuery
+from telegram.ext import CommandHandler, MessageHandler, Filters
 
 from bot.channel_publishing import (
     command_create,
@@ -27,6 +29,7 @@ from bot.core.edit_command import (
     change_allowed_types,
     command_edit,
 )
+from bot.dispatcher import extract_handlers, inspect_handlers, sort_by_type
 from bot.group_reaction import handle_reaction_reply, handle_magic_reply
 from bot.group_reposting import handle_message
 from bot.magic_marks import clear_magic_marks, get_magic_marks, process_magic_mark, restore_text
@@ -38,8 +41,11 @@ from bot.markup import (
     merge_keyboards,
 )
 from bot import redis
+from bot.stats import command_reactions, command_champions
 from bot.utils import clear_buttons
+from bot.wrapper import HandlerWrapper
 from core.models import Chat, Message, User, MessageToPublish, Button
+from stats.models import TopPosters, PopularReactions
 
 
 @pytest.mark.django_db
@@ -937,3 +943,63 @@ class TestCoreCallbackQueries:
 
         handle_empty_callback(update, context)
         assert CallbackQuery.answer.call_count == 1
+
+
+@pytest.mark.django_db
+@pytest.mark.usefixtures(
+    'mock_bot',
+    'mock_redis',
+    'create_update',
+    'create_context',
+    'create_tg_message',
+)
+class TestStats:
+    def test_reacts(self, mocker):
+        msg = self.create_tg_message(text='/reacts')
+        update = self.create_update(message=msg)
+        context = self.create_context()
+        mocker.spy(Bot, 'send_message')
+
+        assert PopularReactions.objects.count() == 0
+        command_reactions(update, context)
+
+        assert PopularReactions.objects.count() == 1
+        assert Bot.send_message.call_count == 1
+
+    def test_champs(self, mocker):
+        msg = self.create_tg_message(text='/reacts')
+        update = self.create_update(message=msg)
+        context = self.create_context()
+        mocker.spy(Bot, 'send_message')
+
+        assert TopPosters.objects.count() == 0
+        command_champions(update, context)
+
+        assert TopPosters.objects.count() == 1
+        assert Bot.send_message.call_count == 1
+
+
+class TestDispatch:
+    def test_extract_handlers(self):
+        from bot import stats
+        handlers = extract_handlers(stats)
+
+        assert len(handlers) > 0
+        assert all(isinstance(h, HandlerWrapper) for h in handlers)
+
+    def test_inspect_handlers(self, mocker):
+        from bot.dispatcher import logger
+        mocker.spy(logger, 'debug')
+        inspect_handlers([])
+        assert logger.debug.call_count == 1
+
+    def test_sort_by_type(self):
+        handlers = [
+            HandlerWrapper(Mock(), False, CommandHandler, command='a'),
+            HandlerWrapper(Mock(), False, MessageHandler, filters=Filters.all),
+            HandlerWrapper(Mock(), False, CommandHandler, command='b'),
+        ]
+        sort_by_type(handlers)
+        assert handlers[0].handler_class == CommandHandler
+        assert handlers[1].handler_class == CommandHandler
+        assert handlers[2].handler_class == MessageHandler
