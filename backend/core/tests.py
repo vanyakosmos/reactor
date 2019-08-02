@@ -1,9 +1,11 @@
+from datetime import timedelta
+
 import pytest
 from django.conf import settings
 from django.utils import timezone
 from telegram import Chat as TGChat, User as TGUser
 
-from core.models import User, Chat, Message, Button, Reaction, UserButtons
+from core.models import User, Chat, Message, Button, Reaction, UserButtons, MessageToPublish
 
 
 @pytest.mark.django_db
@@ -38,7 +40,7 @@ class TestChatModel:
         assert Chat.objects.filter(id=tg_chat.id, type=TGChat.GROUP).count() == 1
 
 
-@pytest.mark.usefixtures('create_user', 'create_chat')
+@pytest.mark.usefixtures('create_user', 'create_chat', 'create_message')
 @pytest.mark.django_db
 class TestMessageModel:
     def test_get_by_id(self):
@@ -63,6 +65,24 @@ class TestMessageModel:
         msg = Message.objects.create_from_tg_ids(chat.id, '2222', timezone.now(), user)
         assert chat == msg.chat
         assert msg.id == f'{chat.id}_2222'
+
+    def test_delete_old(self):
+        past = timezone.now() - timedelta(days=30)
+        self.create_message(date=past)  # 30 days old msg
+        self.create_message(date=past + timedelta(days=10))  # 20 days old msg
+        self.create_message(date=past + timedelta(days=20))  # 10 days old msg
+        assert Message.objects.count() == 3
+        r = Message.objects.delete_old(delta=timedelta(days=60))
+        assert r == 0
+        assert Message.objects.count() == 3
+
+        r = Message.objects.delete_old(delta=timedelta(days=25))
+        assert r == 1
+        assert Message.objects.count() == 2
+
+        r = Message.objects.delete_old(delta=timedelta(days=5))
+        assert r == 2
+        assert Message.objects.count() == 0
 
 
 @pytest.mark.usefixtures('create_chat', 'create_message', 'create_button')
@@ -236,3 +256,35 @@ class TestUserButtonsModel:
 
         # -created order
         assert UserButtons.buttons_list(user.id) == ['c d', 'a b']
+
+
+@pytest.mark.usefixtures('create_user')
+@pytest.mark.django_db
+class TestMessageToPublishModel:
+    def test_delete_old(self, mocker):
+        user = self.create_user()
+        now = timezone.now  # stash now
+        past = timezone.now() - timedelta(days=30)
+        mocker.patch('django.utils.timezone.now', lambda: past)
+        MessageToPublish.objects.create(user=user, message={})
+        mocker.patch('django.utils.timezone.now', lambda: past + timedelta(days=10))
+        MessageToPublish.objects.create(user=user, message={})
+        mocker.patch('django.utils.timezone.now', lambda: past + timedelta(days=20))
+        MessageToPublish.objects.create(user=user, message={})
+
+        # restore now
+        mocker.patch('django.utils.timezone.now', now)
+
+        assert MessageToPublish.objects.count() == 3
+
+        r = MessageToPublish.objects.delete_old(delta=timedelta(days=60))
+        assert r == 0
+        assert MessageToPublish.objects.count() == 3
+
+        r = MessageToPublish.objects.delete_old(delta=timedelta(days=25))
+        assert r == 1
+        assert MessageToPublish.objects.count() == 2
+
+        r = MessageToPublish.objects.delete_old(delta=timedelta(days=5))
+        assert r == 2
+        assert MessageToPublish.objects.count() == 0

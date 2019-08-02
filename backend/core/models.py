@@ -1,4 +1,5 @@
 import uuid
+from datetime import timedelta
 from typing import Tuple, List
 
 from django.conf import settings
@@ -175,6 +176,12 @@ class MessageQuerySet(models.QuerySet):
         buttons = msg.chat.buttons if buttons is None else buttons
         msg.set_buttons(buttons)
         return msg
+
+    def delete_old(self, delta=None):
+        # todo: filter out messages that are amongst 10 last messages of the chat
+        delta = delta or timedelta(days=30)
+        qs = self.filter(date__lt=timezone.now() - delta)
+        return qs.delete()[1].get('core.Message', 0)
 
 
 class Message(TGMixin, models.Model):
@@ -421,6 +428,13 @@ class Reaction(models.Model):
         return f"R({self.user_id} {self.message_id} {self.button.text})"
 
 
+class MessageToPublishQS(models.QuerySet):
+    def delete_old(self, delta=None):
+        delta = delta or timedelta(days=30)
+        qs = self.filter(created__lt=timezone.now() - delta)
+        return qs.delete()[1].get('core.MessageToPublish', 0)
+
+
 class MessageToPublish(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -435,6 +449,8 @@ class MessageToPublish(models.Model):
     @property
     def message_tg(self) -> TGMessage:
         return TGMessage.de_json(self.message, None)
+
+    objects = MessageToPublishQS.as_manager()
 
     class Meta:
         ordering = ('created',)
