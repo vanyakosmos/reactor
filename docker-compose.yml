@@ -27,6 +27,22 @@ services:
     volumes:
       - redisdata:/data
 
+  nginx:
+    build: ./nginx
+    hostname: nginx
+    ports:
+      - 80:80
+      - 443:443
+      - 5432:5432
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /var/www/certbot:/usr/share/nginx/html
+    depends_on:
+      - app
+      - db
+
   app:
     <<: *app
     command: ["./scripts/run.sh", "prod"]

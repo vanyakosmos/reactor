@@ -8,9 +8,15 @@ x-app: &app
     - ./backend:/app
 
 services:
-  db:
+  nginx:
     ports:
-      - 5432:5432
+      - 443
+    volumes:
+      - ./nginx/dev.conf:/etc/nginx/conf.d/default.conf
+      - /etc/letsencrypt
+      - /usr/share/nginx/html
+
+  db:
     env_file:
       - .envs/.local/postgres.env
 
