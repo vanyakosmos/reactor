@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 from django.conf import settings
-from telegram import Bot, Message as TGMessage, CallbackQuery
+from telegram import Bot, Message as TGMessage, CallbackQuery, InlineKeyboardMarkup
 from telegram.ext import CommandHandler, MessageHandler, Filters
 
 from bot.channel_publishing import (
@@ -34,11 +34,8 @@ from bot.group_reaction import handle_reaction_reply, handle_magic_reply
 from bot.group_reposting import handle_message
 from bot.magic_marks import clear_magic_marks, get_magic_marks, process_magic_mark, restore_text
 from bot.markup import (
-    gen_buttons,
-    make_credits_keyboard,
-    make_reactions_keyboard,
-    make_reply_markup,
-    merge_keyboards,
+    gen_buttons, make_credits_keyboard, make_reactions_keyboard, make_reply_markup, merge_keyboards,
+    split_to_columns, flatten_list, fluid_merge_keyboards, EMPTY_CB_DATA
 )
 from bot import redis
 from bot.stats import command_reactions, command_champions
@@ -133,13 +130,57 @@ class TestMarkup:
     def test_merge_keyboards_vertical_limit(self):
         kb = merge_keyboards(
             make_credits_keyboard(**self.user),
-            make_reactions_keyboard(['1', '2'], padding=2),
+            make_reactions_keyboard(['1', '2']),
         )
         markup = merge_keyboards(kb, kb, kb, kb, kb).inline_keyboard
         assert len(markup) == 10
 
         markup = merge_keyboards(kb, kb, kb, kb, kb, kb).inline_keyboard
         assert len(markup) == 10
+
+    def test_fluid_merge_keyboards(self):
+        bs1 = gen_buttons([('a', 0), ('b', 0)])
+        bs2 = gen_buttons([('с', 0), ('d', 0)])
+        kb = fluid_merge_keyboards(
+            InlineKeyboardMarkup([bs1]),
+            None,
+            InlineKeyboardMarkup([bs2]),
+            max_cols=5,
+        ).inline_keyboard
+        assert len(kb) == 1
+        assert len(kb[0]) == 4
+
+    def test_fluid_merge_keyboards_overflow(self):
+        bs1 = gen_buttons([('a', 0), ('b', 0)])
+        bs2 = gen_buttons([('с', 0), ('d', 0)])
+        kb = fluid_merge_keyboards(
+            InlineKeyboardMarkup([bs1]),
+            None,
+            InlineKeyboardMarkup([bs2]),
+            InlineKeyboardMarkup([bs1]),
+            InlineKeyboardMarkup([bs2]),
+            max_cols=5,
+        ).inline_keyboard
+        assert len(kb) == 2
+        assert len(kb[0]) == 5
+        assert len(kb[1]) == 3
+
+    def test_fluid_merge_keyboards_padding(self):
+        bs1 = gen_buttons([('a', 0), ('b', 0)])
+        bs2 = gen_buttons([('с', 0), ('d', 0)])
+        kb = fluid_merge_keyboards(
+            InlineKeyboardMarkup([bs1]),
+            None,
+            InlineKeyboardMarkup([bs2]),
+            InlineKeyboardMarkup([bs1]),
+            InlineKeyboardMarkup([bs2]),
+            max_cols=5,
+            padding=True
+        ).inline_keyboard
+        assert len(kb) == 2
+        assert len(kb[0]) == 5
+        assert len(kb[1]) == 5
+        assert kb[1][-1].callback_data == EMPTY_CB_DATA
 
     def test_gen_buttons(self):
         buttons = gen_buttons(['a', ('b', 2)], blank=False)
@@ -149,7 +190,7 @@ class TestMarkup:
     def test_gen_buttons_blank(self):
         buttons = gen_buttons(['a', ('b', 2)], blank=True)
         buttons = [(b.text, b.callback_data) for b in buttons]
-        assert buttons == [('a', '~'), ('b 2', '~')]
+        assert buttons == [('a', EMPTY_CB_DATA), ('b 2', EMPTY_CB_DATA)]
 
     def test_gen_buttons_big(self):
         buttons = gen_buttons([('a', 5), ('b', 20000)], blank=False)
@@ -180,7 +221,16 @@ class TestMarkup:
         assert len(kb) == 2
         assert [b.text for b in kb[0]] == ['a', 'b', 'c', 'd', 'e']
         assert [b.text for b in kb[1]] == ['f', '.', '.', '.', '.']
-        assert [b.callback_data for b in kb[1][1:]] == ['~'] * 4
+        assert [b.callback_data for b in kb[1][1:]] == [EMPTY_CB_DATA] * 4
+
+    def test_flatten_list(self):
+        assert flatten_list([1, [2, 3]]) == [1, 2, 3]
+        assert flatten_list([[1, 2, [3, 4], [5], [6, [7, 8]]]]) == [1, 2, 3, 4, 5, 6, 7, 8]
+
+    def test_split_to_columns(self):
+        assert split_to_columns([1, 2, 3], 3) == [[1, 2, 3]]
+        assert split_to_columns([1, 2, 3, 4], 3) == [[1, 2, 3], [4]]
+        assert split_to_columns([1, 2, 3, 4], 2) == [[1, 2], [3, 4]]
 
 
 @pytest.mark.usefixtures(
@@ -207,16 +257,16 @@ class TestMarkupWithDB:
         bot = self.create_bot()
         update = self.create_update(bot=bot, chosen_inline_result=True)
         kb = self.make_msg_kb(bot, update, buttons=['a', 'b', 'c'])
-        assert len(kb) == 2
-        assert kb[0][0].text == 'add reaction'
-        assert len(kb[1]) == 3  # buttons
+        assert len(kb) == 1
+        assert kb[-1][-1].text == 'add'
+        assert len(kb[0]) == 4
 
     def test_make_reply_markup_inline_wo_buttons(self):
         bot = self.create_bot()
         update = self.create_update(bot=bot, chosen_inline_result=True)
         kb = self.make_msg_kb(bot, update, buttons=[])
         assert len(kb) == 1
-        assert kb[0][0].text == 'add reaction'
+        assert kb[-1][-1].text == 'add'
 
     def test_make_reply_markup_chat(self):
         bot = self.create_bot()
@@ -938,7 +988,7 @@ class TestCoreCallbackQueries:
         assert list(cs) == [0, 1]
 
     def test_empty_cb(self, mocker):
-        update = self.create_update(callback_query='~')
+        update = self.create_update(callback_query=EMPTY_CB_DATA)
         context = self.create_context()
         mocker.spy(CallbackQuery, 'answer')
 
