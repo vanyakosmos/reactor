@@ -1,3 +1,5 @@
+import sys
+
 import django
 import schedule
 import time
@@ -13,10 +15,14 @@ def make_backup():
     call_command('dbbackup')
 
 
-def main():
+def run(backup=False, clean_up=False):
     django.setup()
-    schedule.every().days.at('00:00').do(make_backup)
-    # schedule.every().day.at('01:00').do(delete_old)
+    if backup:
+        schedule.every().days.at('00:00').do(make_backup)
+    if clean_up:
+        schedule.every().day.at('01:00').do(delete_old)
+    if not any([backup, clean_up]):
+        return
 
     while True:
         schedule.run_pending()
@@ -24,4 +30,7 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    run(
+        backup='backup' in sys.argv,
+        clean_up='clean_up' in sys.argv,
+    )
