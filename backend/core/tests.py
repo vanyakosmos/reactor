@@ -8,6 +8,7 @@ from telegram import Chat as TGChat, User as TGUser
 from core.models import User, Chat, Message, Button, Reaction, UserButtons, MessageToPublish
 
 
+@pytest.mark.usefixtures('create_user')
 @pytest.mark.django_db
 class TestUserModel:
     def test_create(self):
@@ -23,13 +24,32 @@ class TestUserModel:
         User.objects.from_tg_user(tg_user_2)
         assert User.objects.filter(id=tg_user_2.id, first_name=tg_user_2.first_name).count() == 1
 
+    def test_full_name(self):
+        u = self.create_user(first_name='a', last_name='b')
+        assert u.full_name == 'a b'
+        u = self.create_user(first_name='a', username='un')
+        assert u.full_name == 'un'
+        u = self.create_user(first_name='a')
+        assert u.full_name == 'a'
 
+    def test_url(self):
+        u = self.create_user(first_name='a', last_name='b')
+        assert u.url is None
+        u = self.create_user(username='username')
+        assert 'username' in u.url
+
+
+@pytest.mark.usefixtures('create_chat')
 @pytest.mark.django_db
 class TestChatModel:
     def test_create(self):
         tg_chat = TGChat(id='1111', type=TGChat.SUPERGROUP)
         Chat.objects.from_tg_chat(tg_chat)
-        assert Chat.objects.filter(id=tg_chat.id).count() == 1
+        assert Chat.objects.filter(id=tg_chat.id).exists()
+
+        tg_chat = TGChat(id='1111', type=TGChat.PRIVATE, first_name='a', last_name='b')
+        Chat.objects.from_tg_chat(tg_chat)
+        assert Chat.objects.filter(id=tg_chat.id).exists()
 
     def test_update(self):
         tg_chat = TGChat(id='1111', type=TGChat.SUPERGROUP)
@@ -38,6 +58,12 @@ class TestChatModel:
         tg_chat_2 = TGChat(id=tg_chat.id, type=TGChat.GROUP)
         Chat.objects.from_tg_chat(tg_chat_2)
         assert Chat.objects.filter(id=tg_chat.id, type=TGChat.GROUP).count() == 1
+
+    def test_url(self):
+        c = self.create_chat()
+        assert c.url is None
+        c = self.create_chat(username='username')
+        assert 'username' in c.url
 
 
 @pytest.mark.usefixtures('create_user', 'create_chat', 'create_message')
@@ -83,6 +109,15 @@ class TestMessageModel:
         r = Message.objects.delete_old(delta=timedelta(days=5))
         assert r == 2
         assert Message.objects.count() == 0
+
+    def test_get_id(self):
+        assert Message.get_id('a', 'b', 'c') == 'c'
+        assert Message.get_id('a', 'b') == 'a_b'
+        assert Message.get_id('a', 'b_c') == 'b_c'
+        assert Message.get_id('a', None) == 'a'
+
+    def test_split_umid(self):
+        assert Message.split_id('a_b') == ['a', 'b']
 
 
 @pytest.mark.usefixtures('create_chat', 'create_message', 'create_button')
@@ -154,7 +189,9 @@ class TestButtonModel:
         assert reactions == [('a', 10)]
 
 
-@pytest.mark.usefixtures('create_user', 'create_tg_user', 'create_message', 'create_button')
+@pytest.mark.usefixtures(
+    'create_user', 'create_tg_user', 'create_message', 'create_button', 'create_chat'
+)
 @pytest.mark.django_db
 class TestReactionModel:
     def test_safe_create_with_user(self):
@@ -218,6 +255,13 @@ class TestReactionModel:
         buttons = Button.objects.values_list('text', 'count').order_by('index')
         assert list(buttons) == [('a', 2), ('b', 1)]
         assert Reaction.objects.count() == 3
+
+    def test_react_too_many(self):
+        user = self.create_user()
+        msg = self.create_message(buttons=list(map(str, range(settings.MAX_NUM_BUTTONS))))
+        r1, b1 = Reaction.objects.react(user.tg, **msg.ids, button_text='a')
+        assert b1 is None
+        assert r1 is None
 
 
 @pytest.mark.usefixtures('create_user')

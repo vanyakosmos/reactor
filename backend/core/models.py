@@ -16,12 +16,7 @@ __all__ = ['Chat', 'Message', 'Button', 'Reaction', 'User', 'UserButtons', 'Mess
 class TGMixin:
     @property
     def tg(self):
-        raise NotImplemented
-
-    def tgb(self, bot):
-        tg_obj = self.tg
-        tg_obj.bot = bot
-        return tg_obj
+        raise NotImplementedError
 
 
 class UserManager(models.Manager):
@@ -259,7 +254,7 @@ class Message(TGMixin, models.Model):
 
     @property
     def message_id(self):
-        parts = self.id.split('_')
+        parts = self.split_id(self.id)
         if len(parts) == 2:
             return parts[1]
 
@@ -274,34 +269,6 @@ class Message(TGMixin, models.Model):
             forward_from_chat=self.forward_from_chat and self.forward_from_chat.tg,
             forward_from_message_id=self.forward_from_message_id,
         )
-
-    def tgb(self, bot):
-        obj = self.tg
-        obj.bot = bot
-        if obj.chat:
-            obj.chat.bot = bot
-        obj.from_user.bot = bot
-        if obj.forward_from:
-            obj.forward_from.bot = bot
-        if obj.forward_from_chat:
-            obj.forward_from_chat.bot = bot
-        return obj
-
-    @property
-    def from_user_url(self):
-        return self.from_user.url
-
-    @property
-    def forward_user_url(self):
-        if self.forward_from:
-            return self.forward_from.url
-
-    @property
-    def forward_chat_url(self):
-        if self.forward_from_chat:
-            base_url = self.forward_from_chat.url
-            if base_url:
-                return f'{base_url}/{self.forward_from_message_id}'
 
     @property
     def is_inline(self):
