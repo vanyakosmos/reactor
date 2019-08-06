@@ -55,7 +55,7 @@ services:
 
   scheduler:
     <<: *app
-    command: ["python", "scheduler.py"]
+    command: ["./manage.py", "scheduler", "--backup", "--clean-up"]
 
 volumes:
   dbdata:
