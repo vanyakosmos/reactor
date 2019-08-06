@@ -1,7 +1,6 @@
 from os import getenv
 
 TG_BOT_TOKEN = getenv('TG_BOT_TOKEN')
-TG_BOT_POLLING = getenv('TG_BOT_POLLING', '1') == '1'
 TG_BOT_WORKERS = int(getenv('TG_BOT_WORKERS', '4'))
 WEBHOOK_URL = getenv('WEBHOOK_URL')
 
