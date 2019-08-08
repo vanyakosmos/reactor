@@ -7,7 +7,8 @@ from telegram import TelegramObject
 
 def append_to_cls(request: FixtureRequest, func, name=None):
     name = name or func.__name__.strip('_')
-    setattr(request.cls, name, staticmethod(func))
+    if request.cls:
+        setattr(request.cls, name, staticmethod(func))
     return func
 
 

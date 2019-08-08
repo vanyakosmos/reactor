@@ -190,7 +190,11 @@ class TestButtonModel:
 
 
 @pytest.mark.usefixtures(
-    'create_user', 'create_tg_user', 'create_message', 'create_button', 'create_chat'
+    'create_user',
+    'create_tg_user',
+    'create_message',
+    'create_button',
+    'create_chat',
 )
 @pytest.mark.django_db
 class TestReactionModel:
@@ -201,7 +205,7 @@ class TestReactionModel:
         r = Reaction.objects.safe_create(user.tg, msg.id, b)
         assert r.user == user and r.message == msg
 
-    @pytest.mark.skip("pytest misbehave with IntegrityError")
+    @pytest.mark.django_db(transaction=True)
     def test_safe_create_without_user(self):
         msg: Message = self.create_message()
         b: Button = self.create_button()
@@ -235,14 +239,14 @@ class TestReactionModel:
         b1.refresh_from_db()
         assert b1.count == 0
 
-    @pytest.mark.skip("pytest misbehave with IntegrityError")
+    @pytest.mark.django_db(transaction=True)
     def test_react_new_user(self):
         tg_user = self.create_tg_user()
         msg = self.create_message(buttons=['a', 'b'])
         r1, b1 = Reaction.objects.react(tg_user, **msg.ids, button_text='a')
         assert b1.count == 1
         assert r1 is not None
-        assert User.objects.get(id=tg_user.id).exists()
+        assert User.objects.filter(id=tg_user.id).exists()
 
     def test_react_many_users(self):
         u1 = self.create_user()
