@@ -258,7 +258,7 @@ class TestMarkupWithDB:
         update = self.create_update(bot=bot, chosen_inline_result=True)
         kb = self.make_msg_kb(bot, update, buttons=['a', 'b', 'c'])
         assert len(kb) == 1
-        assert kb[-1][-1].text == 'add'
+        assert kb[-1][-1].text == '➕'
         assert len(kb[0]) == 4
 
     def test_make_reply_markup_inline_wo_buttons(self):
@@ -266,7 +266,7 @@ class TestMarkupWithDB:
         update = self.create_update(bot=bot, chosen_inline_result=True)
         kb = self.make_msg_kb(bot, update, buttons=[])
         assert len(kb) == 1
-        assert kb[-1][-1].text == 'add'
+        assert kb[-1][-1].text == '➕'
 
     def test_make_reply_markup_chat(self):
         bot = self.create_bot()

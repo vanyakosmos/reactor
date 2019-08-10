@@ -99,12 +99,12 @@ def make_credits_keyboard(
     return InlineKeyboardMarkup.from_row(buttons)
 
 
-def make_vote_keyboard(bot, inline_message_id, text="add reaction"):
+def make_vote_keyboard(bot, inline_message_id):
     if not inline_message_id:
         return
     return InlineKeyboardMarkup.from_button(
         InlineKeyboardButton(
-            text=text,
+            text='➕',
             url=f'https://t.me/{bot.username}?start={inline_message_id}',
         )
     )
@@ -220,7 +220,7 @@ def make_reply_markup(
     # which means that we are creating keyboard for inline post
     if not chat:
         max_cols = 5
-        vote_keyboard = make_vote_keyboard(bot, message and message.inline_message_id, text='add')
+        vote_keyboard = make_vote_keyboard(bot, message and message.inline_message_id)
         reactions_keyboard = make_reactions_keyboard(reactions, max_cols=max_cols)
         reply_markup = fluid_merge_keyboards(
             reactions_keyboard,
@@ -241,7 +241,7 @@ def make_reply_markup(
     else:
         credits = {}
 
-    vote_keyboard = make_vote_keyboard(bot, message and message.inline_message_id, text='add')
+    vote_keyboard = make_vote_keyboard(bot, message and message.inline_message_id)
     credits_keyboard = make_credits_keyboard(**credits)
     reactions_keyboard = make_reactions_keyboard(
         reactions,
