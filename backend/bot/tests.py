@@ -365,6 +365,20 @@ class TestMagicMarks:
         ms = get_magic_marks('.`a b`')
         assert ms == ['`a b`']
 
+    def test_get_magic_marks_multiline(self):
+        ms = get_magic_marks('.+foo\nbar')
+        assert ms == ['+']
+
+        ms = get_magic_marks('++foo\nbar\nbaz')
+        assert ms == '++'
+
+    def test_get_magic_marks_special(self):
+        ms = get_magic_marks('++foo')
+        assert ms == '++'
+
+        ms = get_magic_marks('--foo\nbar')
+        assert ms == '--'
+
     def test_get_magic_marks_multiple(self):
         ms = get_magic_marks('.+~`a b c`')
         assert ms == ['+', '~', '`a b c`']
@@ -402,35 +416,38 @@ class TestMagicMarks:
         msg = self.create_tg_message(**kwargs)
         return process_magic_mark(msg)
 
+    @pytest.mark.parametrize(
+        "text, expected",
+        [
+            ('foo', False),
+            ('.+foo', False),
+            ('.foo', False),
+            ('.foo+', False),
+            ('.+`a b`', True),  # can't repost empty message
+            ('.-foo', True),
+            ('--foo', True),  # special case
+        ]
+    )
+    def test_process_magic_mark_skip(self, text, expected):
+        force, anon, skip, buttons = self.process(text=text)
+        assert skip is expected
+
+    @pytest.mark.parametrize(
+        "text, expected",
+        [
+            ('.+foo', 1),
+            ('.++foo', 2),
+            ('++foo', 1),
+            ('+++foo', 2),
+        ]
+    )
+    def test_process_magic_mark_force(self, text, expected):
+        force, anon, skip, buttons = self.process(text=text)
+        assert force == expected
+
     def test_process_magic_mark(self):
-        # message might have needed media type
-        force, anon, skip, buttons = self.process(text='foo')
-        assert not skip
-
-        force, anon, skip, buttons = self.process(caption='.+foo')
-        assert not skip
-
-        force, anon, skip, buttons = self.process(text='.foo')
-        assert not skip
-
-        force, anon, skip, buttons = self.process(text='.foo+')
-        assert not skip
-
-        # can't repost empty message
-        force, anon, skip, buttons = self.process(text='.+`a b`')
-        assert skip
-
-        force, anon, skip, buttons = self.process(text='.-foo')
-        assert skip
-
         force, anon, skip, buttons = self.process(text='.~foo')
         assert anon
-
-        force, anon, skip, buttons = self.process(text='.+foo')
-        assert force == 1
-
-        force, anon, skip, buttons = self.process(text='.++foo')
-        assert force == 2
 
         force, anon, skip, buttons = self.process(text='.``foo')
         assert buttons == []

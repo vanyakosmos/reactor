@@ -46,12 +46,15 @@ Apply special action by adding prefix to message's text/caption.
 ```
 # force bot to ignore message (if chat settings allow this type of message to be automatically reposted)
 .-text
+--text
 
 # force bot to repost message (if bot was told to ignore this type of message)
 .+text
+++text
 
 # force bot to repost message on his behalf
 .++text
++++text
  
 # hide credits (don't show who originally posted that message)
 .~text

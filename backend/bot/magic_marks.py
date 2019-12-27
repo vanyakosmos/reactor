@@ -5,15 +5,15 @@ from telegram import Message as TGMessage
 
 from bot.utils import clear_buttons
 
-MAGIC_MARK = regex.compile(r'^\.(-|\+|~|`.*`)+.*$')
+MAGIC_MARK = regex.compile(r'^(?:\.(-|\+|~|`.*`)+|(\+\++|--))')
 
 
 def get_magic_marks(text: str):
     if not text:
         return
-    m = MAGIC_MARK.match(text)
+    m = MAGIC_MARK.search(text)
     if m:
-        return m.captures(1)
+        return m.captures(1) or m[2]  # list of captured values or string with special cases
 
 
 def clear_magic_marks(text: str, marks: list):
@@ -43,6 +43,13 @@ def process_magic_mark(msg: TGMessage):
     text: str = msg.text or msg.caption
     marks = get_magic_marks(text)
     if not marks:
+        return force, anon, skip, buttons
+    elif isinstance(marks, str):
+        if marks == '--':
+            skip = True
+            return force, anon, skip, buttons
+        # assume ++
+        force = marks.count('+') - 1
         return force, anon, skip, buttons
 
     text_wo_marks = clear_magic_marks(text, marks)
